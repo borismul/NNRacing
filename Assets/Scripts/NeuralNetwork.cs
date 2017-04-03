@@ -286,17 +286,6 @@ public class NeuralNetwork
         }
     }
 
-    public void NormalizeWeights()
-    {
-        for (int i = 0; i < layers.Count; i++)
-        {
-            for (int j = 0; j < layers[i].Count; j++)
-            {
-                layers[i][j].NormalizeWeights();
-            }
-        }
-    }
-
     public List<List<Perceptron>> GetLayers()
     {
         return layers;

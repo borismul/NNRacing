@@ -1,28 +1,28 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class TrackPoint : MonoBehaviour
+public class TrackPoint
 {
     public float distance;
     public bool isDone;
-    public Material mat;
+    //public Material mat;
+    public Vector3 position;
 
-    void Start()
+    public TrackPoint(float distance, Vector3 position)
     {
-        Material matCopy = new Material(mat);
-        GetComponent<MeshRenderer>().material = new Material(matCopy);
-        matCopy.color = Color.red;
+        this.distance = distance;
+        this.position = position;
     }
     public void SetDone()
     {
         isDone = true;
-        GetComponent<MeshRenderer>().material.color = Color.blue;
+        //GetComponent<MeshRenderer>().material.color = Color.blue;
     }
 
-    public void SetNotDone()
+    public void Reset()
     {
         isDone = false;
-        GetComponent<MeshRenderer>().material.color = Color.red;
+        //GetComponent<MeshRenderer>().material.color = Color.red;
     }
 
 }

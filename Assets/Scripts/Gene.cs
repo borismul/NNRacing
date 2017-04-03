@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 
 public class Gene {
-    public static int maximumAllowedPerceptronsInLayer = 8;
-    public static int maximumAllowedLayers = 4;
+    public static int maximumAllowedPerceptronsInLayer = 10;
+    public static int maximumAllowedLayers = 3;
     public string networkGene;
     public List<float> weightsGene;
     public Gene(string networkGene, List<float> weightsGene)
@@ -285,7 +285,6 @@ public class Gene {
                     }
                 }
             }
-
         }
 
         for (int i = 0; i < dad.weightsGene.Count; i++)
@@ -295,14 +294,22 @@ public class Gene {
 
             if((float)NeuralNetwork.rand.NextDouble() < weighsMutationChance)
             {
-                newWeight += ((float)NeuralNetwork.rand.NextDouble() - 0.5f)/2;
+                float mutationVariant = (float)NeuralNetwork.rand.NextDouble();
+
+                if (mutationVariant < 0.25f)
+                    newWeight += ((float)NeuralNetwork.rand.NextDouble() - 0.5f) * 2;
+                else if (mutationVariant > 0.25f && mutationVariant < 0.5f)
+                    newWeight = -newWeight;
+                else if (mutationVariant > 0.5f && mutationVariant < 0.75f)
+                    newWeight *= ((float)NeuralNetwork.rand.NextDouble() + 0.5f);
+                else
+                    newWeight = (float)NeuralNetwork.rand.NextDouble() * 10;
             }
 
             weightsGene.Add(newWeight);
         }
 
         NeuralNetwork child = Gene.Decode(new Gene(networkGene, weightsGene));
-        child.NormalizeWeights();
         return child;
 
     }

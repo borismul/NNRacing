@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Collections;
 using UnityEngine.UI;
-
+using UnityEngine.EventSystems;
 public class UIController : MonoBehaviour {
 
     // Neural Network characteristics
@@ -16,6 +16,10 @@ public class UIController : MonoBehaviour {
     public Text generationText;
     public Text individualText;
     public Text timeText;
+    public Text AIcurrentFitness;
+    public Text yourCurrentFitness;
+    public Text timeLeft;
+    public Text multipleSelected;
 
     // Plot characteristics
     public RectTransform plotArea;
@@ -40,7 +44,6 @@ public class UIController : MonoBehaviour {
     List<GameObject> lines = new List<GameObject>();
 
     int currentI = -1;
-
     // Menu objects
 
     public GameObject mainPanel;
@@ -49,6 +52,8 @@ public class UIController : MonoBehaviour {
     public Button nextGenerationInput;
     public Button previousGenerationInput;
     public Button playButton;
+    public Button quitPlayButton;
+    public Button challengeButton;
     public Button quitButton;
 
     public Button pauseButton;
@@ -58,22 +63,26 @@ public class UIController : MonoBehaviour {
     public Text pausingText;
 
     public GameObject networkPanel;
-    public Text networkFitness;
     public GameObject networkVisualize;
     Vector2 nnVisualizeStart;
     Vector2 networkStart;
-    NeuralNetwork activeNetwork;
+    List<NeuralNetwork> activeNetworks = new List<NeuralNetwork>();
 
     public int curGeneration;
+
+    public GameObject manualCarPrefab;
+    public WinLoseCanvasManager winLoseMenu;
 
     // Singleton
     public static UIController instance;
 
     GeneticAlgorithm geneticAlgorithm;
 
-    public NewCarController car;
+    public CarController car;
 
-    Coroutine co;
+    public List<Coroutine> activeRoutines = new List<Coroutine>();
+
+    public bool runningPlay;
 
     void Awake()
     {
@@ -91,14 +100,17 @@ public class UIController : MonoBehaviour {
         generationInput.onValueChanged.AddListener(SetGeneration);
         playButton.onClick.AddListener(Play);
         quitButton.onClick.AddListener(Quit);
+        quitPlayButton.onClick.AddListener(QuitPlay);
+        challengeButton.onClick.AddListener(Challenge);
+
         nnVisualizeStart = networkVisualize.GetComponent<RectTransform>().anchoredPosition;
         networkStart = networkPanel.GetComponent<RectTransform>().anchoredPosition;
     }
 
     public void UpdateUI(float maxFitness, int generation, int individual, float fitness, float time)
     {
-        generationText.text = "Generation: " + (generation + 1).ToString();
-        individualText.text = "Individual: " + (individual + 1).ToString();
+        generationText.text = "Generation: " + (generation).ToString();
+        individualText.text = "Individual: " + (individual).ToString();
         maximumFitnessText.text = "Maximum fitness: " + maxFitness.ToString("F2");
         //timeText.text = "Time: " + time.ToString("F2");
         //fitnessText.text = "Current Fitness: " + fitness.ToString("F2");
@@ -229,18 +241,56 @@ public class UIController : MonoBehaviour {
         if (networkPanel.activeSelf == false)
             networkPanel.SetActive(true);
 
+        multipleSelected.gameObject.SetActive(false);
+
         for (int k = 0; k < networkVisualize.transform.childCount; k++)
         {
             Destroy(networkVisualize.transform.GetChild(k).gameObject);
         }
-        activeNetwork = geneticAlgorithm.generations[curGeneration - 1].networks[i];
+        activeNetworks.Clear();
+        activeNetworks.Add(geneticAlgorithm.generations[curGeneration - 1].networks[i]);
         networkVisualize.GetComponent<RectTransform>().anchoredPosition = nnVisualizeStart;
-        activeNetwork.VisualizeNetwork(perceptron, hSpace, vSpace, line, networkVisualize.transform, "Network");
-        networkFitness.text = "Fitness: " + activeNetwork.Fitness.ToString("F1");
+        activeNetworks[0].VisualizeNetwork(perceptron, hSpace, vSpace, line, networkVisualize.transform, "Network");
+        AIcurrentFitness.text = "Fitness: " + activeNetworks[0].Fitness.ToString("F1");
 
         currentI = i;
     }
-    
+
+    public void ActivateMultipleSelected(int i)
+    {
+        for (int k = 0; k < networkVisualize.transform.childCount; k++)
+        {
+            Destroy(networkVisualize.transform.GetChild(k).gameObject);
+        }
+        multipleSelected.gameObject.SetActive(true);
+        activeNetworks.Add(geneticAlgorithm.generations[curGeneration - 1].networks[i]);
+        float maxFitness = 0;
+        foreach(NeuralNetwork network in activeNetworks)
+        {
+            if (network.Fitness > maxFitness)
+                maxFitness = network.Fitness;
+        }
+
+        AIcurrentFitness.text = "Maximum Fitness of selection: " + activeNetworks[0].Fitness.ToString("F1");
+
+    }
+
+    public void DeactivateMultipleSelected(int i)
+    {
+        multipleSelected.gameObject.SetActive(true);
+        activeNetworks.Remove(geneticAlgorithm.generations[curGeneration - 1].networks[i]);
+        float maxFitness = 0;
+
+        foreach (NeuralNetwork network in activeNetworks)
+        {
+            if (network.Fitness > maxFitness)
+                maxFitness = network.Fitness;
+        }
+
+        AIcurrentFitness.text = "Maximum Fitness of selection: " + activeNetworks[0].Fitness.ToString("F1");
+
+    }
+
     public void DisableNetwork(int i, bool nonActive)
     {
         geneticAlgorithm.generations[curGeneration-1].networks[i].output = null;
@@ -286,6 +336,7 @@ public class UIController : MonoBehaviour {
         pauseButton.interactable = true;
         resumeButton.interactable = false;
         networkPanel.SetActive(false);
+        multipleSelected.gameObject.SetActive(false);
 
         geneticAlgorithm.isPaused = false;
     }
@@ -349,93 +400,164 @@ public class UIController : MonoBehaviour {
 
     void Play()
     {
+        ResetPlay();
+
         mainPanel.GetComponent<CanvasGroup>().alpha = 0;
         networkPanel.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
-        networkFitness.text = 0.ToString();
-        playButton.GetComponentInChildren<Text>().text = "Quit Play";
-        playButton.onClick.RemoveAllListeners();
-        playButton.onClick.AddListener(QuitPlay);
-        geneticAlgorithm.currentNetwork = activeNetwork;
 
-        DistanceTracker.instance.CompleteReset();
-        car.Reset();
-        co = StartCoroutine("_Play");
+        quitPlayButton.gameObject.SetActive(true);
+
+        activeRoutines.Add(StartCoroutine(_Play(false)));
     }
 
-    void ContinuePlay()
+    void Challenge()
     {
-        StopCoroutine(co);
-        DistanceTracker.instance.CompleteReset();
-        car.Reset();
+        ResetPlay();
 
-        co = StartCoroutine("_Play");
+        mainPanel.GetComponent<CanvasGroup>().alpha = 0;
+        networkPanel.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
+
+        quitPlayButton.gameObject.SetActive(true);
+
+        activeRoutines.Add(StartCoroutine(_Play(true)));
     }
 
-    IEnumerator _Play()
+    IEnumerator _Play(bool challenge)
     {
-        float currentTime = 0;
-        int fps = geneticAlgorithm.fps;
-        int carUpdateRate = 1;
+        EventSystem.current.SetSelectedGameObject(null);
 
-        currentTime = 0;
-        car.Reset();
-        bool stop = false;
-        for (int tracks = 0; tracks < 2; tracks++)
+        yourCurrentFitness.gameObject.SetActive(true);
+        timeText.gameObject.SetActive(true);
+        multipleSelected.gameObject.SetActive(false);
+        timeText.text = geneticAlgorithm.simulationTime.ToString("F2");
+        List<NeuralNetwork> networks = new List<NeuralNetwork>();
+
+        networks.AddRange(activeNetworks);
+        if(challenge)
+            networks.Add(null);
+
+        if (challenge)
         {
-            currentTime = 0;
-            stop = false;
-            DistanceTracker.instance.NextTrack();
-            car.Reset();
-            for (int k = 0; k < geneticAlgorithm.simulationTime; k++)
-            {
-                for (int l = 0; l < fps; l++)
-                {
-                    DistanceTracker.instance.UpdateDistance(currentTime);
-                    currentTime += 1f / (float)fps;
-                    geneticAlgorithm.SetOutput();
-                    if (!car.UpdateCar(1f / (float)fps))
-                    {
-                        DistanceTracker.instance.Penalty(0.9f);
-                        car.Reset();
-                    }
-                    else if (!DistanceTracker.instance.UpdateDistance(currentTime) || stop)
-                    {
-                        stop = true;
-                        break;
-                    }
+            winLoseMenu.gameObject.SetActive(true);
+            winLoseMenu.ReadySetGo();
 
-                    if (l != 0 && carUpdateRate != 0 && l % carUpdateRate == 0)
+            Coroutine routine = geneticAlgorithm.StartCoroutine(geneticAlgorithm.CreateCars(networks, true, false, 4));
+            activeRoutines.Add(routine);
+        }
+
+        else
+        {
+            Coroutine routine = geneticAlgorithm.StartCoroutine(geneticAlgorithm.CreateCars(networks, false, true, 0));
+            activeRoutines.Add(routine);
+
+
+
+        }
+        runningPlay = true;
+        float measureTime = Time.realtimeSinceStartup;
+        while (runningPlay)
+        {
+            if (CameraController.currentActiveMainCamera == null)
+            {
+                for (int i = 0; i < CarController.cameras.Count; i++)
+                {
+                    if (CarController.cameras[i] == null)
                     {
-                        for (int m = 0; m < (float)60 / fps / carUpdateRate; m++)
-                        {
-                            //UIController.instance.UpdateUI(maxFitness, i, j, curFitness + Mathf.Clamp(DistanceTracker.instance.distance, 0, Mathf.Infinity), currentTime);
-                            yield return null;
-                            if (carUpdateRate == 0)
-                                break;
-                        }
+                        CarController.cameras.RemoveAt(i);
+                        i--;
                     }
                 }
 
-                if (stop)
-                    break;
+                CarController.cameras[0].gameObject.SetActive(true);
+                CameraController.currentActiveMainCamera = CarController.cameras[0];
             }
 
+            float maxAIfitness = 0;
+
+            for (int i = 0; i < geneticAlgorithm.carControllers.Count; i++)
+            {
+                if (geneticAlgorithm.carControllers[i].GetNetwork() == null)
+                    yourCurrentFitness.text = "Your fitness: " + geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness().ToString("F1");
+                else
+                {
+                    if (geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness() > maxAIfitness)
+                        maxAIfitness = geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness();
+                }
+            }
+
+            AIcurrentFitness.text = "Max AI fitness: " + maxAIfitness.ToString("F1");
+            timeText.text = "Time Left: " + (geneticAlgorithm.simulationTime - geneticAlgorithm.carControllers[0].GetFitnessTracker().time).ToString("F2");
+
+            if (Input.GetKeyDown(KeyCode.V) && !challenge)
+            {
+                for (int i = 0; i < CarController.cameras.Count; i++)
+                {
+                    if (CarController.cameras[i].gameObject.activeSelf)
+                    {
+                        CarController.cameras[i].gameObject.SetActive(false);
+
+                        if (i != CarController.cameras.Count - 1)
+                            CarController.cameras[i + 1].gameObject.SetActive(true);
+                        else
+                            CarController.cameras[0].gameObject.SetActive(true);
+                        break;
+                    }
+                }
+            }
+            measureTime = Time.realtimeSinceStartup;
+            yield return new WaitForSeconds(0.1f);
+
         }
-        ContinuePlay();
+
+        if (challenge)
+        {
+            float maxFitness = 0;
+            NeuralNetwork maxNetwork = null;
+            for (int i = 0; i < geneticAlgorithm.carControllers.Count; i++)
+            {
+                if (geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness() > maxFitness)
+                {
+                    maxFitness = geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness();
+                    maxNetwork = geneticAlgorithm.carControllers[i].GetNetwork();
+                }
+            }
+
+
+            if (maxNetwork == null)
+                winLoseMenu.WinLose(true);
+            else
+                winLoseMenu.WinLose(false);
+        }
+    }
+
+    void ResetPlay()
+    {
+        foreach (Coroutine routine in activeRoutines)
+        {
+            StopCoroutine(routine);
+        }
+
+        winLoseMenu.CancelAll();
 
     }
 
     void QuitPlay()
     {
-        StopCoroutine(co);
-        DistanceTracker.instance.CompleteReset();
-        car.Reset();
         mainPanel.GetComponent<CanvasGroup>().alpha = 1;
         networkPanel.GetComponent<RectTransform>().anchoredPosition = networkStart;
-        networkFitness.text = "Fitness: " + activeNetwork.Fitness.ToString("F2");
-        playButton.GetComponentInChildren<Text>().text = "Play";
-        playButton.onClick.RemoveAllListeners();
-        playButton.onClick.AddListener(Play);
+
+        yourCurrentFitness.gameObject.SetActive(false);
+        quitPlayButton.gameObject.SetActive(false);
+        timeText.gameObject.SetActive(false);
+
+        foreach (Coroutine routine in activeRoutines)
+        {
+            StopCoroutine(routine);
+        }
+
+        winLoseMenu.CancelAll();
+
+        geneticAlgorithm.SetUpdateRate(0);
     }
 
     void Quit()

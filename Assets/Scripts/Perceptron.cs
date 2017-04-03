@@ -159,28 +159,14 @@ public class Perceptron
     {
         for (int i = 0; i < inputConnections.Count; i++)
         {
-            float curWeight = Random.Range(-1f,1f);
+            float curWeight = Random.Range(-4f,4f);
             inputConnections[i].weight = curWeight;
         }
-
-        NormalizeWeights();
-    }
-
-    public void NormalizeWeights()
-    {
-        //float sum = 0;
-        //for (int i = 0; i < inputConnections.Count; i++)
-        //    sum += inputConnections[i].weight;
-
-        //for (int i = 0; i < inputConnections.Count; i++)
-        //{
-        //    inputConnections[i].weight /= sum;
-        //}
     }
 
     public void DetermineOutput(float input)
     { 
-        output = Step(input) * inputConnections[0].weight;
+        output = Step(input * inputConnections[0].weight);
     }
 
     public void DetermineOutput()
@@ -205,7 +191,7 @@ public class Perceptron
 
     float Sigmoid(float x)
     {
-        return (1 / (1 + Mathf.Exp(-x))) - theta;
+        return (1 / (1 + Mathf.Exp(-x - theta)) );
     }
 
     float Step(float x)
@@ -213,7 +199,7 @@ public class Perceptron
         if (x - theta > 0)
             return 1;
 
-        return -1;
+        return 0;
 
     }
 }
