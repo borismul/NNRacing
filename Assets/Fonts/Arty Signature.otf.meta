@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: b46f8b89a0d740c448e2e8633f77705b
+timeCreated: 1492089804
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: Arty Signature
+  fontNames:
+  - Arty Signature
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

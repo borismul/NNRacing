@@ -2,43 +2,153 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
-public class EditorUIController : MonoBehaviour {
+public class EditorUIController : MonoBehaviour
+{
+    public Button mainOptionsButton;
 
+    public Button resetButton;
+    public Button openSaveMenuButton;
+    public Button loadPanelButton;
+    public Button mainMenuButton;
 
-    public InputField brushSizeInput;
-    public Slider brushSizeSlider;
+    public Button saveTrackButton;
+    public Button saveBackButton;
 
+    public Button loadTrackButton;
+    public Button loadBackButton;
+
+    public InputField saveNameInput;
+
+    public GameObject optionsPanel;
+    public GameObject savePanel;
+    public GameObject loadPanel;
+
+    public Text saveTitleText;
+
+    public LevelBuilder builder;
+    public LoadTrackManager loadTrackManager;
     TexturePainter painter;
 	// Use this for initialization
 	void Start ()
     {
         painter = TexturePainter.instance;
-        brushSizeInput.onValueChanged.AddListener(BrushSizeInput);
-        brushSizeSlider.onValueChanged.AddListener(BrushSizeSlider);
-        brushSizeInput.text = "30";
-	}
-	
-	// Update is called once per frame
-	void Update () {
-		
-	}
+        painter.brushSize = 15;
 
-    void BrushSizeInput(string input)
-    {
-        int par = int.Parse(input);
+        resetButton.onClick.AddListener(Reset);
+        mainOptionsButton.onClick.AddListener(MainOptions);
+        openSaveMenuButton.onClick.AddListener(SavePanel);
+        loadPanelButton.onClick.AddListener(LoadPanel);
+        mainMenuButton.onClick.AddListener(MainMenu);
 
-        if (par > 100)
-            par = 100;
+        saveTrackButton.onClick.AddListener(SaveTrack);
+        saveBackButton.onClick.AddListener(SaveBack);
 
-        brushSizeSlider.value = par;
-        painter.brushSize = par;
+        loadTrackButton.onClick.AddListener(LoadTrack);
+        loadBackButton.onClick.AddListener(LoadBack);
     }
 
-    void BrushSizeSlider(float value)
+    void Reset()
     {
-        int par = (int)value;
-        brushSizeInput.text = par.ToString();
-        painter.brushSize = par;
+        painter.Reset();
     }
+
+    void MainOptions()
+    {
+        if (optionsPanel.activeSelf)
+            optionsPanel.SetActive(false);
+        else
+            optionsPanel.SetActive(true);
+    }
+
+    void SavePanel()
+    {
+        saveTitleText.color = Color.black;
+        saveTitleText.text = "Enter a name for your track.";
+
+        mainOptionsButton.gameObject.SetActive(false);
+        optionsPanel.SetActive(false);
+
+        savePanel.SetActive(true);
+
+        painter.inMenu = true;
+    }
+
+    void LoadPanel()
+    {
+        mainMenuButton.gameObject.SetActive(false);
+        optionsPanel.SetActive(false);
+
+        loadPanel.SetActive(true);
+        painter.inMenu = true;
+
+    }
+
+    void MainMenu()
+    {
+        SceneManager.LoadScene("MainScene");
+    }
+
+    void SaveTrack()
+    {
+        string name = saveNameInput.text;
+        try
+        {
+            if (builder.SaveTrack(name))
+                SaveBack();
+            else
+            {
+                saveTitleText.color = Color.red;
+                saveTitleText.text = "Enter a correct name!";
+            }
+
+        }
+        catch (System.Exception)
+        {
+            saveTitleText.color = Color.red;
+            saveTitleText.text = "Enter a correct name!";
+        }
+    }
+
+    void SaveBack()
+    {
+        mainOptionsButton.gameObject.SetActive(true);
+        optionsPanel.SetActive(true);
+
+        savePanel.SetActive(false);
+
+        painter.inMenu = false;
+    }
+
+    void LoadTrack()
+    {
+        Texture2D tex;
+        if (loadTrackManager.selectedTrackName != "")
+        {
+            tex = builder.LoadTrackMenu(loadTrackManager.selectedTrackName);
+            tex.filterMode = FilterMode.Point;
+            builder.GetComponent<Renderer>().material.SetTexture("_MainTex", (Texture)tex);
+        }
+        else
+            loadTrackManager.Error("First select a track!");
+
+        LoadBack();
+        MainOptions();
+
+    }
+
+    void LoadBack()
+    {
+        mainMenuButton.gameObject.SetActive(true);
+        optionsPanel.SetActive(true);
+
+        loadPanel.SetActive(false);
+
+        painter.inMenu = false;
+
+    }
+
+
+
 }

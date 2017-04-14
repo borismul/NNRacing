@@ -1,493 +1,1324 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using B83.ExpressionParser;
+using UnityEngine.SceneManagement;
 
 
 public class MainMenuController : MonoBehaviour
 {
-    public InputField generations;
-    public InputField individuals;
-    public InputField carSimPerFrame;
-    public InputField simTime;
-    public InputField simFPS;
-    public InputField WeightsProb;
-    public InputField NNprob;
-    public InputField laps;
-    public Toggle stopAtCrash;
-
-    public InputField maxCarSpeed;
-    public InputField carAccSpeed;
-    public InputField breakSpeed;
-    public InputField carTurnSpeed;
-
-    public InputField fitnessInput;
-
-    public Button nextButton;
-    public Button backButton;
-    public Button checkButton;
-
-    public CarController car;
-    public CanvasGroup otherCanvas;
-
+    [Header("Main Menu Elements")]
+    public GameObject mainPanel;
     public Text errorText;
+    public Button startTraining;
+    public Button challengeNetwork;
+    public Button trainingOptions;
+    public Button trackEditor;
+    public Button QuitButton;
 
-    public GameObject thisCanvas;
-    public GameObject parametersPanel;
+    [Header("Network Selector Elements")]
+    public GameObject networkSelectorMenu;
+    public Button selectorNetwork;
+    public Button networkSelectorBack;
+
+    [Header("Track Selector Elements")]
+    public GameObject trackSelectorMenu;
+    public Button selectorTrack;
+    public Button trackSelectorBack;
+
+    [Header("Training options panel elements")]
+    public GameObject trainingOptionsPanel;
+    public Button trainingParameters;
+    public Button fitnessFunction;
+    public Button trainingOptionsBackButton;
+
+    [Header("Training parameter panel elements")]
+    public GameObject trainingParametersPanel;
+    public Toggle advanceToggle;
+    public Button trainingParamtersBackButton;
+    public GameObject basicPanel;
+    public GameObject advancePanel;
+
+    [Header("Basic Section")]
+    public InputField populationSizeSimple;
+    public InputField simulationTimeSimple;
+    public InputField numberOfLapsSimple;
+    public Toggle stopAtCrashSimple;
+    public InputField accelerationSimple;
+    public InputField breakForceSimple;
+    public InputField turnRateSimple;
+    public InputField maximumVelocitySimple;
+
+    [Header("Advanced Section")]
+    public InputField populationSizeAdvanced;
+    public InputField simulationTimeAdvanced;
+    public InputField numberOfLapsAdvanced;
+    public InputField simulationFps;
+    public InputField savePercentage;
+    public Toggle stopAtCrashAdvanced;
+    public InputField accelerationAdvanced;
+    public InputField breakForceAdvanced;
+    public InputField turnRateAdvanced;
+    public InputField maximumSpeedAdvanced;
+    public InputField crossoverRate;
+    public InputField networkInputs;
+    public InputField networkOutputs;
+    public InputField maximumSpecies;
+    public InputField ageAllowedNoImprovement;
+    public InputField compatibilityThreshold;
+    public InputField survivalRate;
+    public InputField youngAgeThreshold;
+    public InputField oldAgeThreshold;
+    public InputField youngFitnessBonus;
+    public InputField oldFitnessBonus;
+    public InputField perceptronAddProbability;
+    public InputField synapseAddProbability;
+    public InputField recurrentLinkProbability;
+    public InputField activationMutationProbability;
+    public InputField maxActivationPerturbation;
+    public InputField weightMutationProbability;
+    public InputField maxWeightPerturbation;
+    public InputField weightReplacementProbability;
+    public InputField maxPermittedPerceptrons;
+
+    [Header("Fitness Function Elements")]
     public GameObject fitnessPanel;
+    public InputField fitness;
+    public Button fitnessAccept;
 
-    Expression exp;
+    [Header("Link Elements")]
+    public GameObject trainingCanvas;
+    public CarTrainer carTrainer;
+    public LevelBuilder builder;
+    public LoadTrackManager loadTrackManager;
+    public LoadNetworksManager loadNetworksManager;
+    public UIController uiController;
+    public GameObject challengeMenu;
 
     void Start()
     {
-        otherCanvas.alpha = 0;
-        otherCanvas.blocksRaycasts = false;
-        backButton.interactable = false;
-        backButton.onClick.AddListener(BackButton);
-
-        generations.onValueChanged.AddListener(Generations);
-        generations.text = PlayerPrefs.GetString("generations");
-        if(generations.text == "")
-            generations.text = "100";
-
-        individuals.onValueChanged.AddListener(Individuals);
-        individuals.text = PlayerPrefs.GetString("individuals");
-        if (individuals.text == "")
-            individuals.text = "100";
-
-        carSimPerFrame.onValueChanged.AddListener(CarSimPerFrame);
-        carSimPerFrame.text = PlayerPrefs.GetString("carSimPerFrame");
-        if (carSimPerFrame.text == "")
-            carSimPerFrame.text = "1";
-
-        simTime.onValueChanged.AddListener(SimTime);
-        simTime.text = PlayerPrefs.GetString("simTime");
-        if (simTime.text == "")
-            simTime.text = "30";
-
-        simFPS.onValueChanged.AddListener(SimFPS);
-        simFPS.text = PlayerPrefs.GetString("simFPS");
-        if (simFPS.text == "")
-            simFPS.text = "60";
-
-        WeightsProb.onValueChanged.AddListener(WeightMut);
-        WeightsProb.text = PlayerPrefs.GetString("WeightsProb");
-        if (WeightsProb.text == "")
-            WeightsProb.text = "0.05";
-
-        NNprob.onValueChanged.AddListener(NNMut);
-        NNprob.text = PlayerPrefs.GetString("NNprob");
-        if (NNprob.text == "")
-            NNprob.text = "0.0005";
-
-        maxCarSpeed.onValueChanged.AddListener(MaxSpeed);
-        maxCarSpeed.text = PlayerPrefs.GetString("maxCarSpeed");
-        if (maxCarSpeed.text == "")
-            maxCarSpeed.text = "50";
-
-        carAccSpeed.onValueChanged.AddListener(AccSpeed);
-        carAccSpeed.text = PlayerPrefs.GetString("carAccSpeed");
-        if (carAccSpeed.text == "")
-            carAccSpeed.text = "10";
-
-        breakSpeed.onValueChanged.AddListener(BreakSpeed);
-        breakSpeed.text = PlayerPrefs.GetString("breakSpeed");
-        if (breakSpeed.text == "")
-            breakSpeed.text = "20";
-
-        carTurnSpeed.onValueChanged.AddListener(TurnSpeed);
-        carTurnSpeed.text = PlayerPrefs.GetString("carTurnSpeed");
-        if (carTurnSpeed.text == "")
-            carTurnSpeed.text = "80";
-
-        fitnessInput.onValueChanged.AddListener(FitnessInput);
-        fitnessInput.text = PlayerPrefs.GetString("FitnessEQ");
-        if (fitnessInput.text == "")
-            fitnessInput.text = "(x + x / (t + 0.001) * l) + 0.9 ^ n";
-
-        laps.onValueChanged.AddListener(Laps);
-        laps.text = PlayerPrefs.GetString("Laps");
-        if (laps.text == "")
-            laps.text = "1";
-
-        stopAtCrash.onValueChanged.AddListener(StopAtCrash);
-        stopAtCrash.isOn = PlayerPrefs.GetInt("StopAtCrash") > 0;
-
-        nextButton.onClick.AddListener(NextButton);
-        checkButton.onClick.AddListener(CheckButton);
+        InitializeMainMenu();
+        InitializeNetworkSelectorPanel();
+        InitializeTrainingOptions();
+        InitializeTrackSelectorPanel();
+        InitializeTrainingParameters();
+        InitializeFitnessPanel();
     }
 
-    void StopAtCrash(bool value)
+    // Initializes menu elements
+    void InitializeMainMenu()
     {
-        if (value)
-            PlayerPrefs.SetInt("StopAtCrash", 1);
-        else
-            PlayerPrefs.SetInt("StopAtCrash", 0);
-
-        GeneticAlgorithm.instance.stopAtCrash = value;
+        startTraining.onClick.AddListener(StartTraining);
+        challengeNetwork.onClick.AddListener(ChallengeNetwork);
+        trainingOptions.onClick.AddListener(TrainingOptions);
+        trackEditor.onClick.AddListener(TrackEditor);
+        QuitButton.onClick.AddListener(Quit);
     }
 
-    void Laps(string input)
+    void StartTraining()
     {
-        if (laps.text == "")
+        trackSelectorMenu.SetActive(true);
+        trackSelectorBack.onClick.RemoveAllListeners();
+        trackSelectorBack.onClick.AddListener(SelectorBack);
+        selectorTrack.onClick.RemoveAllListeners();
+        selectorTrack.onClick.AddListener(SelectorTrack);
+        mainPanel.SetActive(false);
+    }
+
+    void ChallengeNetwork()
+    {
+        networkSelectorMenu.SetActive(true);
+        mainPanel.SetActive(false);
+    }
+
+    void TrainingOptions()
+    {
+        mainPanel.SetActive(false);
+        trainingOptionsPanel.SetActive(true);
+    }
+
+    void TrackEditor()
+    {
+        SceneManager.LoadScene("LevelEditor");
+    }
+
+    void Quit()
+    {
+        Application.Quit();
+    }
+
+    // Initializes track selector panel
+    void InitializeTrackSelectorPanel()
+    {
+        selectorTrack.onClick.AddListener(SelectorTrack);
+        trackSelectorBack.onClick.AddListener(SelectorBack);
+    }
+
+    void SelectorTrack()
+    {
+
+        builder.LoadTrack(loadTrackManager.selectedTrackName);
+        trainingCanvas.SetActive(true);
+        carTrainer.StartSim();
+        transform.parent.gameObject.SetActive(false);
+    }
+
+    void SelectorBack()
+    {
+        trackSelectorMenu.SetActive(false);
+        mainPanel.SetActive(true);
+    }
+
+    void SelectorBackToNetwork()
+    {
+        trackSelectorMenu.SetActive(false);
+        networkSelectorMenu.SetActive(true);
+    }
+
+    // Initializes track selector panel
+    void InitializeNetworkSelectorPanel()
+    {
+        selectorNetwork.onClick.AddListener(SelectorNetwork);
+        networkSelectorBack.onClick.AddListener(SelectorNetworkBack);
+    }
+
+    void SelectorNetwork()
+    {
+        if (loadNetworksManager.currentNetworks.Count == 0)
             return;
 
-        int par = int.Parse(input);
-        if (par < 1)
-        {
-            par = 1;
-            laps.text = 1.ToString();
-        }
+        trainingCanvas.SetActive(true);
+        trainingCanvas.SetActive(false);
 
-        GeneticAlgorithm.instance.laps = par;
-        PlayerPrefs.SetString("Laps", laps.text);
+        trackSelectorMenu.SetActive(true);
+        uiController.activeNetworks.Clear();
+        uiController.activeNetworks.AddRange(loadNetworksManager.currentNetworks);
+        trackSelectorBack.onClick.RemoveAllListeners();
+        trackSelectorBack.onClick.AddListener(SelectorBackToNetwork);
+        selectorTrack.onClick.RemoveAllListeners();
+        selectorTrack.onClick.AddListener(StartChallengeNetwork);
+        networkSelectorMenu.SetActive(false);
+
+        loadNetworksManager.currentNetworks[0].DestroyNetwork();
+        loadNetworksManager.currentNetworks.Clear();
     }
 
-    void FitnessInput(string input)
+    void SelectorNetworkBack()
     {
-        PlayerPrefs.SetString("FitnessEQ", input);
-
-        foreach (Text text in GetComponentsInChildren<Text>())
-        {
-            text.color = Color.black;
-        }
+        if(loadNetworksManager.currentNetworks.Count == 1)
+            loadNetworksManager.currentNetworks[0].DestroyNetwork();
+        networkSelectorMenu.SetActive(false);
+        mainPanel.SetActive(true);
+        loadNetworksManager.currentNetworks.Clear();
     }
 
-    void Generations(string input)
+    void StartChallengeNetwork()
     {
-        if (generations.text == "")
+        if (loadTrackManager.selectedTrackName == "")
             return;
 
-        int gen = int.Parse(input);
-        if (gen < 1)
-        {
-            gen = 1;
-            generations.text = 1.ToString();
-        }
-
-        GeneticAlgorithm.instance.numGenerations = gen;
-        PlayerPrefs.SetString("generations", generations.text);
-    }
-
-    void Individuals(string input)
-    {
-        if (individuals.text == "")
-            return;
-
-        int ind = int.Parse(input);
-        if (ind < 1)
-        {
-            ind = 1;
-            individuals.text = 1.ToString();
-        }
-
-        GeneticAlgorithm.instance.populationSize = ind;
-        PlayerPrefs.SetString("individuals", individuals.text);
-    }
-
-    void CarSimPerFrame(string input)
-    {
-        if (carSimPerFrame.text == "")
-            return;
-
-        int par = int.Parse(input);
-        if (par < 1)
-        {
-            carSimPerFrame.text = 1.ToString();
-            par = 1;
-        }
-        else if (par > 50)
-        {
-            carSimPerFrame.text = 50.ToString();
-            par = 50;
-        }
-        GeneticAlgorithm.instance.carsPerFrame = par;
-        PlayerPrefs.SetString("carSimPerFrame", carSimPerFrame.text);
+        trainingCanvas.SetActive(true);
+        builder.LoadTrack(loadTrackManager.selectedTrackName);
+        StartCoroutine(_StartChallengeNetwork());
 
     }
 
-    void SimTime(string input)
+    IEnumerator _StartChallengeNetwork()
     {
-        if (simTime.text == "")
-            return;
-
-        int par = int.Parse(input);
-        if (par < 1)
-        {
-            simTime.text = 1.ToString();
-            par = 1;
-        }
-        else if (par > 500)
-        {
-            par = 500;
-            simTime.text = 500.ToString();
-        }
-        GeneticAlgorithm.instance.simulationTime = par
-            ;
-        PlayerPrefs.SetString("simTime", simTime.text);
-
+        yield return null;
+        uiController.Challenge();
+        challengeMenu.SetActive(true);
+        transform.parent.gameObject.SetActive(false);
     }
 
-    void SimFPS(string input)
+    // Initializes training options panel
+    void InitializeTrainingOptions()
     {
-        if (simFPS.text == "")
-            return;
-
-        int par = int.Parse(input);
-        if (par < 1)
-        {
-            simFPS.text = 10.ToString();
-            par = 1;
-        }
-        else if (par > 500)
-        {
-            par = 500;
-            simFPS.text = 500.ToString();
-        }
-        GeneticAlgorithm.instance.fps = par;
-
-        PlayerPrefs.SetString("simFPS", simFPS.text);
-
+        trainingParameters.onClick.AddListener(TrainingParameters);
+        fitnessFunction.onClick.AddListener(FitnessFunction);
+        trainingOptionsBackButton.onClick.AddListener(TrainingOptionsBack);
     }
 
-    void WeightMut(string input)
+    void TrainingParameters()
     {
-        if (WeightsProb.text == "")
-            return;
-
-        float par = float.Parse(input);
-        if (par < 0)
-        {
-            WeightsProb.text = 0.ToString();
-            par = 0;
-        }
-        else if (par > 1)
-        {
-            par = 1;
-            WeightsProb.text = 1.ToString();
-        }
-        GeneticAlgorithm.instance.NNWeightsMutationChance = par;
-        PlayerPrefs.SetString("WeightsProb", WeightsProb.text);
-
+        trainingOptionsPanel.SetActive(false);
+        trainingParametersPanel.SetActive(true);
     }
 
-    void NNMut(string input)
+    void FitnessFunction()
     {
-        if (NNprob.text == "")
-            return;
-
-        float par = float.Parse(input);
-        if (par < 0)
-        {
-            NNprob.text = 0.ToString();
-            par = 0;
-        }
-        else if (par > 1)
-        {
-            par = 1;
-            NNprob.text = 1.ToString();
-        }
-        GeneticAlgorithm.instance.NNMutationChance = par;
-        PlayerPrefs.SetString("NNprob", NNprob.text);
-
-    }
-
-    void MaxSpeed(string input)
-    {
-        if (maxCarSpeed.text == "")
-            return;
-
-        float par = float.Parse(input);
-        if (par < 0.1f)
-        {
-            maxCarSpeed.text = 0.1f.ToString();
-            par = 0.1f;
-        }
-        else if (par > 500)
-        {
-            par = 500;
-            maxCarSpeed.text = 500.ToString();
-        }
-        GeneticAlgorithm.instance.maxVelocity = par;
-        PlayerPrefs.SetString("maxCarSpeed", maxCarSpeed.text);
-
-    }
-
-    void AccSpeed(string input)
-    {
-        if (carAccSpeed.text == "")
-            return;
-
-        float par = float.Parse(input);
-        if (par < 0.1f)
-        {
-            carAccSpeed.text = 0.1f.ToString();
-            par = 0.1f;
-        }
-        else if (par > 100)
-        {
-            par = 100;
-            carAccSpeed.text = 100.ToString();
-        }
-        GeneticAlgorithm.instance.accSpeed = par;
-        PlayerPrefs.SetString("carAccSpeed", carAccSpeed.text);
-
-    }
-
-    void BreakSpeed(string input)
-    {
-        if (breakSpeed.text == "")
-            return;
-
-        float par = float.Parse(input);
-        if (par < 0.1f)
-        {
-            breakSpeed.text = 0.1f.ToString();
-            par = 0.1f;
-        }
-        else if (par > 500)
-        {
-            par = 500;
-            breakSpeed.text = 500.ToString();
-        }
-        GeneticAlgorithm.instance.breakSpeed = par;
-        PlayerPrefs.SetString("breakSpeed", breakSpeed.text);
-    }
-
-    void TurnSpeed(string input)
-    {
-        if (carTurnSpeed.text == "")
-            return;
-
-        float par = float.Parse(input);
-        if (par < 0.1f)
-        {
-            carTurnSpeed.text = 0.1f.ToString();
-            par = 0.1f;
-        }
-        else if (par > 500)
-        {
-            par = 500;
-            carTurnSpeed.text = 500.ToString();
-        }
-        GeneticAlgorithm.instance.turnSpeed = par;
-        PlayerPrefs.SetString("carTurnSpeed", carTurnSpeed.text);
-
-    }
-
-    void StartSimulation()
-    {
-        if (!CheckFitnessText())
-            return;
-
-        if(generations.text != "" &&
-           individuals.text != "" && 
-           carSimPerFrame.text != "" &&
-           simFPS.text != "" &&
-           WeightsProb.text != "" &&
-           NNprob.text != "" &&
-           maxCarSpeed.text != "" &&
-           carAccSpeed.text != "" &&
-           carTurnSpeed.text != "")
-        {
-            otherCanvas.gameObject.SetActive(true);
-            GeneticAlgorithm.instance.StartSim();
-            otherCanvas.alpha = 1;
-            otherCanvas.blocksRaycasts = true;
-            thisCanvas.SetActive(false);
-        }
-        else
-        {
-            errorText.gameObject.SetActive(true);
-        }
-    }
-
-    void Update()
-    {
-        Tabbing();
-    }
-
-    void Tabbing()
-    {
-        Selectable current = null;
-        Selectable next = null;
-        if (Input.GetKeyDown(KeyCode.Tab) && Input.GetKey(KeyCode.LeftShift))
-        {
-            if (EventSystem.current.currentSelectedGameObject == null)
-                return;
-
-            current = EventSystem.current.currentSelectedGameObject.GetComponent<Selectable>();
-            next = current.FindSelectableOnUp();
-
-            if (next == null)
-            {
-                next = carTurnSpeed.GetComponent<Selectable>();
-            }
-
-            if (current == stopAtCrash.GetComponent<Selectable>())
-            {
-                next = NNprob.GetComponent<Selectable>();
-            }
-            next.Select();
-        }
-        else if(Input.GetKeyDown(KeyCode.Tab))
-        {
-            if (EventSystem.current.currentSelectedGameObject == null)
-                return;
-
-            current = EventSystem.current.currentSelectedGameObject.GetComponent<Selectable>();
-            next = current.FindSelectableOnDown();
-
-            if (next == null)
-            {
-                next = stopAtCrash.GetComponent<Selectable>();
-            }
-
-            if (current == carTurnSpeed.GetComponent<Selectable>())
-            {
-                next = generations.GetComponent<Selectable>();
-            }
-            next.Select();
-        }
-
-    }
-
-    void NextButton()
-    {
-        parametersPanel.SetActive(false);
         fitnessPanel.SetActive(true);
-        backButton.interactable = true;
-        nextButton.GetComponentInChildren<Text>().text = "Start";
-        nextButton.onClick.RemoveAllListeners();
-        nextButton.onClick.AddListener(StartSimulation);
+        trainingOptionsPanel.SetActive(false);
+    }
+
+    void TrainingOptionsBack()
+    {
+        mainPanel.SetActive(true);
+        trainingOptionsPanel.SetActive(false);
+    }
+
+    void InitializeTrainingParameters()
+    {
+        trainingParamtersBackButton.onClick.AddListener(TrainingParametersBack);
+        advanceToggle.onValueChanged.AddListener(AdvancedToggle);
+
+        InitializeTrainingParametersBasic();
+        InitializeTrainingParametersAdvanced();
+    }
+
+    void TrainingParametersBack()
+    {
+        advanceToggle.isOn = false;
+        trainingOptionsPanel.SetActive(true);
+        trainingParametersPanel.SetActive(false);
+        basicPanel.SetActive(true);
+        advancePanel.SetActive(false);
+    }
+
+    void AdvancedToggle(bool isOn)
+    {
+        if(isOn)
+        {
+            advancePanel.SetActive(true);
+            basicPanel.SetActive(false);
+        }
+        else
+        {
+            advancePanel.SetActive(false);
+            basicPanel.SetActive(true);
+        }
+    }
+
+    // Initialize the training parameters options basic panel
+    void InitializeTrainingParametersBasic()
+    {
+        populationSizeSimple.onValueChanged.AddListener(PopulationSizeSimple);
+
+        // population size
+        int parInt = PlayerPrefs.GetInt("populationSize", -1);
+        if (parInt == -1)
+            populationSizeSimple.text = 50.ToString();
+        else
+            populationSizeSimple.text = parInt.ToString();
+        
+        simulationTimeSimple.onValueChanged.AddListener(SimulationTimeSimple);
+
+        // simulation time
+        float parFloat = PlayerPrefs.GetFloat("simulationTime", -1f);
+        if (parFloat == -1)
+            simulationTimeSimple.text = 30.ToString();
+        else
+            simulationTimeSimple.text = parFloat.ToString();
+
+        numberOfLapsSimple.onValueChanged.AddListener(NumberOfLapsSimple);
+
+        // number of laps
+        parInt = PlayerPrefs.GetInt("numberOfLaps", -1);
+        if (parInt == -1)
+            numberOfLapsSimple.text = 1.ToString();
+        else
+            numberOfLapsSimple.text = parInt.ToString();
+
+        stopAtCrashSimple.onValueChanged.AddListener(StopAtCrashSimple);
+
+        // stop at crash
+        parInt = PlayerPrefs.GetInt("stopAtCrash", -1);
+        if (parInt == -1)
+            stopAtCrashSimple.isOn = true;
+        else
+        {
+            if (parInt == 1)
+                stopAtCrashSimple.isOn = true;
+            else
+                stopAtCrashSimple.isOn = false;
+        }
+        GA_Parameters.stopAtCrash = stopAtCrashSimple.isOn;
+
+        accelerationSimple.onValueChanged.AddListener(AccelerationSimple);
+
+        // acceleration
+        parFloat = PlayerPrefs.GetFloat("acceleration", -1);
+        if (parFloat == -1)
+            accelerationSimple.text = 10.ToString();
+        else
+            accelerationSimple.text = parFloat.ToString();
+
+        breakForceSimple.onValueChanged.AddListener(BreakForceSimple);
+
+        // break force
+        parFloat = PlayerPrefs.GetFloat("breakForce", -1);
+        if (parFloat == -1)
+            breakForceSimple.text = 20.ToString();
+        else
+            breakForceSimple.text = parFloat.ToString();
+
+        turnRateSimple.onValueChanged.AddListener(TurnRateSimple);
+
+        // turn Rate
+        parFloat = PlayerPrefs.GetFloat("turnRate", -1);
+        if (parFloat == -1)
+            turnRateSimple.text = 80.ToString();
+        else
+            turnRateSimple.text = parFloat.ToString();
+
+        maximumVelocitySimple.onValueChanged.AddListener(MaximumVelocitySimple);
+
+        // maximim velocity
+        parFloat = PlayerPrefs.GetFloat("maximumVelocity", -1);
+        if (parFloat == -1)
+            maximumVelocitySimple.text = 50.ToString();
+        else
+            maximumVelocitySimple.text = parFloat.ToString();
+
+    }
+
+    void InitializeTrainingParametersAdvanced()
+    {
+        populationSizeAdvanced.onValueChanged.AddListener(PopulationSizeAdvanced);
+
+        // population size
+        int parInt = PlayerPrefs.GetInt("populationSize", -1);
+        if (parInt == -1)
+            populationSizeAdvanced.text = 50.ToString();
+        else
+            populationSizeAdvanced.text = parInt.ToString();
+
+        simulationTimeAdvanced.onValueChanged.AddListener(SimulationTimeAdvanced);
+
+        // simulation time
+        float parFloat = PlayerPrefs.GetFloat("simulationTime", -1f);
+        if (parFloat == -1)
+            simulationTimeAdvanced.text = 30.ToString();
+        else
+            simulationTimeAdvanced.text = parFloat.ToString();
+
+        numberOfLapsAdvanced.onValueChanged.AddListener(NumberOfLapsAdvanced);
+
+        // number of laps
+        parInt = PlayerPrefs.GetInt("numberOfLaps", -1);
+        if (parInt == -1)
+            numberOfLapsAdvanced.text = 1.ToString();
+        else
+            numberOfLapsAdvanced.text = parInt.ToString();
+
+        simulationFps.onValueChanged.AddListener(SimulationFPS);
+
+        // simulation FPS
+        parInt = PlayerPrefs.GetInt("simulationFPS", -1);
+        if (parInt == -1)
+            simulationFps.text = 60.ToString();
+        else
+            simulationFps.text = parInt.ToString();
+
+        savePercentage.onValueChanged.AddListener(SavePercentage);
+
+        // save percentage
+        parFloat = PlayerPrefs.GetFloat("savePercentage", -1);
+        if (parFloat == -1)
+            savePercentage.text = 10f.ToString();
+        else
+            savePercentage.text = parFloat.ToString();
+        stopAtCrashAdvanced.onValueChanged.AddListener(StopAtCrashAdvanced);
+
+        // stop at crash
+        parInt = PlayerPrefs.GetInt("stopAtCrash", -1);
+        if (parInt == -1)
+            stopAtCrashSimple.isOn = true;
+        else
+        {
+            if (parInt == 1)
+                stopAtCrashAdvanced.isOn = true;
+            else
+                stopAtCrashAdvanced.isOn = false;
+        }
+
+        accelerationAdvanced.onValueChanged.AddListener(AccelerationAdvanced);
+
+        // acceleration
+        parFloat = PlayerPrefs.GetFloat("acceleration", -1);
+        if (parFloat == -1)
+            accelerationAdvanced.text = 10.ToString();
+        else
+            accelerationAdvanced.text = parFloat.ToString();
+
+        breakForceAdvanced.onValueChanged.AddListener(BreakForceAdvanced);
+
+        // break force
+        parFloat = PlayerPrefs.GetFloat("breakForce", -1);
+        if (parFloat == -1)
+            breakForceAdvanced.text = 20.ToString();
+        else
+            breakForceAdvanced.text = parFloat.ToString();
+
+        turnRateAdvanced.onValueChanged.AddListener(TurnRateAdvanced);
+
+        // turn Rate
+        parFloat = PlayerPrefs.GetFloat("turnRate", -1);
+        if (parFloat == -1)
+            turnRateAdvanced.text = 80.ToString();
+        else
+            turnRateAdvanced.text = parFloat.ToString();
+
+        maximumSpeedAdvanced.onValueChanged.AddListener(MaximumVelocityAdvanced);
+
+        // maximim velocity
+        parFloat = PlayerPrefs.GetFloat("maximumVelocity", -1);
+        if (parFloat == -1)
+            maximumSpeedAdvanced.text = 50.ToString();
+        else
+            maximumSpeedAdvanced.text = parFloat.ToString();
+
+        crossoverRate.onValueChanged.AddListener(CrossoverRate);
+
+        // crossover Rate
+        parFloat = PlayerPrefs.GetFloat("crossoverRate", -1);
+        if (parFloat == -1)
+            crossoverRate.text = 0.7f.ToString();
+        else
+            crossoverRate.text = parFloat.ToString();
+
+        networkInputs.onValueChanged.AddListener(NetworkInputs);
+
+        // network Inputs
+        parInt = PlayerPrefs.GetInt("networkInputs", -1);
+        if (parInt == -1)
+            networkInputs.text = 8.ToString();
+        else
+            networkInputs.text = parInt.ToString();
+
+        networkOutputs.onValueChanged.AddListener(NetworkOutputs);
+
+        // network OutPuts
+        parInt = PlayerPrefs.GetInt("networkOutputs", -1);
+        if (parInt == -1)
+            networkOutputs.text = 4.ToString();
+        else
+            networkOutputs.text = parInt.ToString();
+
+        maximumSpecies.onValueChanged.AddListener(MaximumSpecies);
+
+        // maximum species
+        parInt = PlayerPrefs.GetInt("maximumSpecies", -1);
+        if (parInt == -1)
+            maximumSpecies.text = 20.ToString();
+        else
+            maximumSpecies.text = parInt.ToString();
+
+        ageAllowedNoImprovement.onValueChanged.AddListener(AgeAllowedNoImprovements);
+
+        // age allowed no improvement
+        parInt = PlayerPrefs.GetInt("ageAllowedNoImprovements", -1);
+        if (parInt == -1)
+            ageAllowedNoImprovement.text = 30.ToString();
+        else
+            ageAllowedNoImprovement.text = parInt.ToString();
+
+        compatibilityThreshold.onValueChanged.AddListener(CompatibilityThreshold);
+
+        // compatibility threshold
+        parFloat = PlayerPrefs.GetFloat("compatibilityThreshold", -1);
+        if (parFloat == -1)
+            compatibilityThreshold.text = 0.33f.ToString();
+        else
+            compatibilityThreshold.text = parFloat.ToString();
+
+        survivalRate.onValueChanged.AddListener(SurvivalRate);
+
+        // survival rate
+        parFloat = PlayerPrefs.GetFloat("survivalRate", -1);
+        if (parFloat == -1)
+            survivalRate.text = 0.7f.ToString();
+        else
+            survivalRate.text = parFloat.ToString();
+
+        youngAgeThreshold.onValueChanged.AddListener(YoungAgeThreshold);
+
+        // young age threshold
+        parInt = PlayerPrefs.GetInt("youngAgeThreshold", -1);
+        if (parInt == -1)
+            youngAgeThreshold.text = 10.ToString();
+        else
+            youngAgeThreshold.text = parInt.ToString();
+
+        oldAgeThreshold.onValueChanged.AddListener(OldAgeThreshold);
+
+        // old age threshold
+        parInt = PlayerPrefs.GetInt("oldAgeThreshold", -1);
+        if (parInt == -1)
+            oldAgeThreshold.text = 40.ToString();
+        else
+            oldAgeThreshold.text = parInt.ToString();
+
+        youngFitnessBonus.onValueChanged.AddListener(YoungFitnessBonus);
+
+        // young fitness Bonus
+        parFloat = PlayerPrefs.GetFloat("youngFitnessBonus", -1);
+        if (parFloat == -1)
+            youngFitnessBonus.text = 1.3f.ToString();
+        else
+            youngFitnessBonus.text = parFloat.ToString();
+
+        oldFitnessBonus.onValueChanged.AddListener(OldFitnessPenalty);
+
+        // old fitness Bonus
+        parFloat = PlayerPrefs.GetFloat("oldFitnessPenalty", -1);
+        if (parFloat == -1)
+            oldFitnessBonus.text = 0.7f.ToString();
+        else
+            oldFitnessBonus.text = parFloat.ToString();
+
+        perceptronAddProbability.onValueChanged.AddListener(PerceptronAddProbability);
+
+        // perceptron add probability
+        parFloat = PlayerPrefs.GetFloat("perceptronAddProbability", -1);
+        if (parFloat == -1)
+            perceptronAddProbability.text = 0.03f.ToString();
+        else
+            perceptronAddProbability.text = parFloat.ToString();
+
+        synapseAddProbability.onValueChanged.AddListener(SynapseAddProbability);
+
+        // synapse add probability
+        parFloat = PlayerPrefs.GetFloat("synapseAddProbability", -1);
+        if (parFloat == -1)
+            synapseAddProbability.text = 0.07f.ToString();
+        else
+            synapseAddProbability.text = parFloat.ToString();
+
+        recurrentLinkProbability.onValueChanged.AddListener(RecurrentLinkProbability);
+
+        // recurrent link probability
+        parFloat = PlayerPrefs.GetFloat("recurrentLinkProbability", -1);
+        if (parFloat == -1)
+            recurrentLinkProbability.text = 0.1f.ToString();
+        else
+            recurrentLinkProbability.text = parFloat.ToString();
+
+        activationMutationProbability.onValueChanged.AddListener(ActivationMutationProbability);
+
+        // activation mutation probability
+        parFloat = PlayerPrefs.GetFloat("activationMutationProbability", -1);
+        if (parFloat == -1)
+            activationMutationProbability.text = 0.1f.ToString();
+        else
+            activationMutationProbability.text = parFloat.ToString();
+
+        maxActivationPerturbation.onValueChanged.AddListener(MaxActivationPerturbation);
+
+        // max activation perturbation
+        parFloat = PlayerPrefs.GetFloat("maxActivationPerturbation", -1);
+        if (parFloat == -1)
+            maxActivationPerturbation.text = 0.5f.ToString();
+        else
+            maxActivationPerturbation.text = parFloat.ToString();
+
+        weightMutationProbability.onValueChanged.AddListener(WeightMutationProbability);
+
+        // weight mutation probability
+        parFloat = PlayerPrefs.GetFloat("weightMutationProbability", -1);
+        if (parFloat == -1)
+            weightMutationProbability.text = 0.1f.ToString();
+        else
+            weightMutationProbability.text = parFloat.ToString();
+
+        maxWeightPerturbation.onValueChanged.AddListener(MaxWeightPerturbation);
+
+        // max activation perturbation
+        parFloat = PlayerPrefs.GetFloat("maxWeightPerturbation", -1);
+        if (parFloat == -1)
+            maxWeightPerturbation.text = 0.5f.ToString();
+        else
+            maxWeightPerturbation.text = parFloat.ToString();
+
+        weightReplacementProbability.onValueChanged.AddListener(WeightReplacementProbability);
+
+        // weight replacement probability
+        parFloat = PlayerPrefs.GetFloat("weightReplacementProbability", -1);
+        if (parFloat == -1)
+            weightReplacementProbability.text = 0.1f.ToString();
+        else
+            weightReplacementProbability.text = parFloat.ToString();
+
+        maxPermittedPerceptrons.onValueChanged.AddListener(MaxPermittedPerceptrons);
+
+        // max permitted perceptrons
+        parInt = PlayerPrefs.GetInt("maxPermittedPerceptrons", -1);
+        if (parInt == -1)
+            maxPermittedPerceptrons.text = 400.ToString();
+        else
+            maxPermittedPerceptrons.text = parInt.ToString();
+
+    }
+
+    void PopulationSizeSimple(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.populationSize = par;
+        populationSizeAdvanced.text = populationSizeSimple.text;
+
+        PlayerPrefs.SetInt("populationSize", par);
+    }
+
+    void SimulationTimeSimple(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.simulationTime = par;
+        simulationTimeAdvanced.text = simulationTimeSimple.text;
+
+        PlayerPrefs.SetFloat("simulationTime", par);
+
+    }
+
+    void NumberOfLapsSimple(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.laps = par;
+        numberOfLapsAdvanced.text = numberOfLapsSimple.text;
+
+        PlayerPrefs.SetInt("numberOfLaps", par);
+
+    }
+
+    void StopAtCrashSimple(bool isOn)
+    {
+        stopAtCrashAdvanced.isOn = isOn;
+        if(isOn)
+            PlayerPrefs.SetInt("stopAtCrash", 1);
+        else
+            PlayerPrefs.SetInt("stopAtCrash", 0);
+
+        GA_Parameters.stopAtCrash = isOn;
+    }
+
+    void AccelerationSimple(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.accSpeed = par;
+        accelerationAdvanced.text = accelerationSimple.text;
+
+        PlayerPrefs.SetFloat("acceleration", par);
+
+    }
+
+    void BreakForceSimple(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.breakSpeed = par;
+        breakForceAdvanced.text = breakForceSimple.text;
+
+        PlayerPrefs.SetFloat("breakForce", par);
+
+    }
+
+    void TurnRateSimple(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.turnSpeed = par;
+        turnRateAdvanced.text = turnRateSimple.text;
+
+        PlayerPrefs.SetFloat("turnRate", par);
+
+    }
+
+    void MaximumVelocitySimple(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.maxSpeed = par;
+        maximumSpeedAdvanced.text = maximumVelocitySimple.text;
+
+        PlayerPrefs.SetFloat("maximumVelocity", par);
+    }
+
+    // Advanced Panel
+    void PopulationSizeAdvanced(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.populationSize = par;
+        populationSizeSimple.text = populationSizeAdvanced.text;
+
+        PlayerPrefs.SetInt("populationSize", par);
+    }
+
+    void SimulationTimeAdvanced(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.simulationTime = par;
+        simulationTimeSimple.text = simulationTimeAdvanced.text;
+
+        PlayerPrefs.SetFloat("simulationTime", par);
+
+    }
+
+    void NumberOfLapsAdvanced(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.laps = par;
+        numberOfLapsSimple.text = numberOfLapsAdvanced.text;
+
+        PlayerPrefs.SetInt("numberOfLaps", par);
+
+    }
+
+    void SimulationFPS(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.fps = par;
+
+        PlayerPrefs.SetInt("simulationFPS", par);
+
+    }
+
+    void SavePercentage(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 100)
+            par = 100;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.savePercentage = par;
+
+        PlayerPrefs.SetFloat("savePercentage", par);
+    }
+
+    void StopAtCrashAdvanced(bool isOn)
+    {
+        stopAtCrashSimple.isOn = isOn;
+        if (isOn)
+            PlayerPrefs.SetInt("stopAtCrash", 1);
+        else
+            PlayerPrefs.SetInt("stopAtCrash", 0);
+
+        GA_Parameters.stopAtCrash = isOn;
+
+    }
+
+    void AccelerationAdvanced(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.accSpeed = par;
+        accelerationSimple.text = accelerationAdvanced.text;
+
+        PlayerPrefs.SetFloat("acceleration", par);
+
+    }
+
+    void BreakForceAdvanced(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.breakSpeed = par;
+        breakForceSimple.text = breakForceAdvanced.text;
+
+        PlayerPrefs.SetFloat("breakForce", par);
+
+    }
+
+    void TurnRateAdvanced(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.turnSpeed = par;
+        turnRateSimple.text = turnRateAdvanced.text;
+
+        PlayerPrefs.SetFloat("turnRate", par);
+
+    }
+
+    void MaximumVelocityAdvanced(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.maxSpeed = par;
+        maximumVelocitySimple.text = maximumSpeedAdvanced.text;
+
+        PlayerPrefs.SetFloat("maximumVelocity", par);
+    }
+
+    void CrossoverRate(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.crossOverRate = par;
+
+        PlayerPrefs.SetFloat("crossoverRate", par);
+    }
+
+    void NetworkInputs(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 2)
+            par = 2;
+        GA_Parameters.inputs = par;
+
+        PlayerPrefs.SetInt("networkInputs", par);
+
+    }
+
+    void NetworkOutputs(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        GA_Parameters.outputs = par;
+
+        PlayerPrefs.SetInt("networkOutputs", par);
+
+    }
+
+    void MaximumSpecies(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.maxSpecies = par;
+
+        PlayerPrefs.SetInt("maximumSpecies", par);
+
+    }
+
+    void AgeAllowedNoImprovements(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 1)
+            par = 1;
+        GA_Parameters.numGensAllowedNoImprovement = par;
+
+        PlayerPrefs.SetInt("ageAllowedNoImprovements", par);
+
+    }
+
+    void CompatibilityThreshold(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.compatibilityThreshold = par;
+
+        PlayerPrefs.SetFloat("compatibilityThreshold", par);
+    }
+
+    void SurvivalRate(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.survivalRate = par;
+
+        PlayerPrefs.SetFloat("survivalRate", par);
+    }
+
+    void YoungAgeThreshold(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.youngBonusAgeThreshhold = par;
+
+        PlayerPrefs.SetInt("youngAgeThreshold", par);
+
+    }
+
+    void OldAgeThreshold(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.oldAgeThreshHold = par;
+
+        PlayerPrefs.SetInt("oldAgeThreshold", par);
+
+    }
+
+    void YoungFitnessBonus(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par < 1)
+            par = 1;
+
+        GA_Parameters.youngFitnessBonus = par;
+
+        PlayerPrefs.SetFloat("youngFitnessBonus", par);
+    }
+
+    void OldFitnessPenalty(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par < 0)
+            par = 0;
+        else if (par > 1)
+            par = 1;
+
+        GA_Parameters.oldAgePenalty = par;
+
+        PlayerPrefs.SetFloat("oldFitnessPenalty", par);
+    }
+
+    void PerceptronAddProbability(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.chanceAddPerceptron = par;
+
+        PlayerPrefs.SetFloat("perceptronAddProbability", par);
+    }
+
+    void SynapseAddProbability(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.chanceToAddLink = par;
+
+        PlayerPrefs.SetFloat("synapseAddProbability", par);
+    }
+
+    void RecurrentLinkProbability(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.chanceRecurrentLink = par;
+
+        PlayerPrefs.SetFloat("recurrentLinkProbability", par);
+    }
+
+    void ActivationMutationProbability(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.activationMutationChance = par;
+
+        PlayerPrefs.SetFloat("activationMutationProbability", par);
+    }
+
+    void MaxActivationPerturbation(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par < 0)
+            par = 0;
+
+        GA_Parameters.maxActivationPerturbation = par;
+
+        PlayerPrefs.SetFloat("maxActivationPerturbation", par);
+    }
+
+    void WeightMutationProbability(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.weightMutationRate = par;
+
+        PlayerPrefs.SetFloat("weightMutationProbability", par);
+    }
+
+    void MaxWeightPerturbation(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par < 0)
+            par = 0;
+
+        GA_Parameters.maxWeightPerturbation = par;
+
+        PlayerPrefs.SetFloat("maxWeightPerturbation", par);
+    }
+
+    void WeightReplacementProbability(string text)
+    {
+        if (text == "")
+            return;
+
+        float par = float.Parse(text);
+
+        if (par > 1)
+            par = 1;
+        else if (par < 0)
+            par = 0;
+
+        GA_Parameters.weightReplaceProb = par;
+
+        PlayerPrefs.SetFloat("weightReplacementProbability", par);
+    }
+
+    void MaxPermittedPerceptrons(string text)
+    {
+        if (text == "")
+            return;
+
+        int par = int.Parse(text);
+        if (par < 0)
+            par = 0;
+        GA_Parameters.maxPermittedPerceptrons = par;
+
+        PlayerPrefs.SetInt("maxPermittedPerceptrons", par);
+
+    }
+
+    void InitializeFitnessPanel()
+    {
+        fitnessAccept.onClick.AddListener(FitnessAccept);
+        fitness.onValueChanged.AddListener(Fitness);
+
+        if (PlayerPrefs.GetString("fitnessEQ") != "")
+            fitness.text = PlayerPrefs.GetString("fitnessEQ");
+        else
+            fitness.text = "x + x/t * l";
+
         CheckFitnessText();
     }
 
-    void BackButton()
+    void FitnessAccept()
     {
-        parametersPanel.SetActive(true);
-        backButton.interactable = false;
-        nextButton.GetComponentInChildren<Text>().text = "Next";
-        nextButton.onClick.RemoveAllListeners();
-        nextButton.onClick.AddListener(NextButton);
-        fitnessPanel.SetActive(false);
+        if (CheckFitnessText())
+        {
+            fitnessPanel.SetActive(false);
+            trainingOptionsPanel.SetActive(true);
+        }
     }
+
+    void Fitness(string text)
+    {
+        foreach(Text inputText in fitness.GetComponentsInChildren<Text>())
+            inputText.color = Color.black;
+    }
+
+
+    Expression exp;
+
+    void Update()
+    {
+        //Tabbing();
+    }
+
+    //void Tabbing()
+    //{
+    //    Selectable current = null;
+    //    Selectable next = null;
+    //    if (Input.GetKeyDown(KeyCode.Tab) && Input.GetKey(KeyCode.LeftShift))
+    //    {
+    //        if (EventSystem.current.currentSelectedGameObject == null)
+    //            return;
+
+    //        current = EventSystem.current.currentSelectedGameObject.GetComponent<Selectable>();
+    //        next = current.FindSelectableOnUp();
+
+    //        if (next == null)
+    //        {
+    //            next = carTurnSpeed.GetComponent<Selectable>();
+    //        }
+
+    //        if (current == stopAtCrash.GetComponent<Selectable>())
+    //        {
+    //            next = NNprob.GetComponent<Selectable>();
+    //        }
+    //        next.Select();
+    //    }
+    //    else if (Input.GetKeyDown(KeyCode.Tab))
+    //    {
+    //        if (EventSystem.current.currentSelectedGameObject == null)
+    //            return;
+
+    //        current = EventSystem.current.currentSelectedGameObject.GetComponent<Selectable>();
+    //        next = current.FindSelectableOnDown();
+
+    //        if (next == null)
+    //        {
+    //            next = stopAtCrash.GetComponent<Selectable>();
+    //        }
+
+    //        if (current == carTurnSpeed.GetComponent<Selectable>())
+    //        {
+    //            next = generations.GetComponent<Selectable>();
+    //        }
+    //        next.Select();
+    //    }
+
+    //}
 
     bool CheckFitnessText()
     {
-        if (fitnessInput.text == "")
+        if (fitness.text == "")
             return false;
 
         ExpressionParser parser = new ExpressionParser();
 
         try
         {
-            exp = parser.EvaluateExpression(fitnessInput.text);
+            exp = parser.EvaluateExpression(fitness.text);
         }
         catch
         {
-            foreach (Text text in fitnessInput.GetComponentsInChildren<Text>())
+            foreach (Text text in fitness.GetComponentsInChildren<Text>())
             {
                 text.color = Color.red;
             }
@@ -510,7 +1341,7 @@ public class MainMenuController : MonoBehaviour
 
             if (!isEqual)
             {
-                foreach (Text text in fitnessInput.GetComponentsInChildren<Text>())
+                foreach (Text text in fitness.GetComponentsInChildren<Text>())
                 {
                     text.color = Color.red;
                 }
@@ -534,19 +1365,19 @@ public class MainMenuController : MonoBehaviour
 
         if (exp.Parameters.Count < 1 || exp.Parameters.Count > expectedKeys.Count)
         {
-            foreach (Text text in fitnessInput.GetComponentsInChildren<Text>())
+            foreach (Text text in fitness.GetComponentsInChildren<Text>())
             {
                 text.color = Color.red;
             }
             return false;
         }
 
-        foreach (Text text in fitnessInput.GetComponentsInChildren<Text>())
+        foreach (Text text in fitness.GetComponentsInChildren<Text>())
         {
             text.color = Color.green;
         }
 
-        
+
         FitnessTracker.fitnessDelegate = exp.ToDelegate(FitnessTracker.keys.ToArray());
 
         double[] input = new double[FitnessTracker.keys.Count];
@@ -560,18 +1391,15 @@ public class MainMenuController : MonoBehaviour
         }
         catch (System.Exception)
         {
-            foreach (Text text in fitnessInput.GetComponentsInChildren<Text>())
+            foreach (Text text in fitness.GetComponentsInChildren<Text>())
             {
                 text.color = Color.red;
             }
             return false;
         }
 
+        PlayerPrefs.SetString("fitnessEQ", fitness.text);
         return true;
     }
 
-    void CheckButton()
-    {
-        CheckFitnessText();
-    }
 }

@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Collections;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-public class UIController : MonoBehaviour {
+using UnityEngine.SceneManagement;
+
+public class UIController : MonoBehaviour
+{
 
     // Neural Network characteristics
     public GameObject perceptron;
-    public GameObject hSpace;
-    public GameObject vSpace;
+    public GameObject loopLink;
     public GameObject line;
 
     // Textboxes
@@ -38,8 +40,6 @@ public class UIController : MonoBehaviour {
     int numGridLines = 10;
     public Text gridLabel;
 
-    float currentAvg;
-    float currentMax;
 
     List<GameObject> lines = new List<GameObject>();
 
@@ -52,13 +52,20 @@ public class UIController : MonoBehaviour {
     public Button nextGenerationInput;
     public Button previousGenerationInput;
     public Button playButton;
+    public Button saveNetworkButton;
     public Button quitPlayButton;
     public Button challengeButton;
     public Button quitButton;
 
+    public GameObject savePanel;
+    public InputField saveInput;
+    public Button saveButton;
+    public Button cancelSave;
+
     public Button pauseButton;
     public Button resumeButton;
     public Button stopButton;
+    public Button mainMenu;
 
     public Text pausingText;
 
@@ -66,17 +73,18 @@ public class UIController : MonoBehaviour {
     public GameObject networkVisualize;
     Vector2 nnVisualizeStart;
     Vector2 networkStart;
-    List<NeuralNetwork> activeNetworks = new List<NeuralNetwork>();
-
+    public List<NeuralNetwork> activeNetworks = new List<NeuralNetwork>();
+    Genome currentGenome;
     public int curGeneration;
 
     public GameObject manualCarPrefab;
     public WinLoseCanvasManager winLoseMenu;
+    public GameObject mainMenuCanvas;
 
     // Singleton
     public static UIController instance;
 
-    GeneticAlgorithm geneticAlgorithm;
+    CarTrainer carTrainer;
 
     public CarController car;
 
@@ -84,15 +92,21 @@ public class UIController : MonoBehaviour {
 
     public bool runningPlay;
 
+    public Camera UICamera;
+    public GameObject particles;
+
     void Awake()
     {
         instance = this;
+        carTrainer = CarTrainer.instance;
+
         AnalysePlotArea();
     }
 
     void Start()
     {
-        geneticAlgorithm = GeneticAlgorithm.instance;
+        particles.SetActive(true);
+        SetActiveParticles(true);
         pauseButton.onClick.AddListener(_Pause);
         resumeButton.onClick.AddListener(Resume);
         nextGenerationInput.onClick.AddListener(GenerationUp);
@@ -102,6 +116,10 @@ public class UIController : MonoBehaviour {
         quitButton.onClick.AddListener(Quit);
         quitPlayButton.onClick.AddListener(QuitPlay);
         challengeButton.onClick.AddListener(Challenge);
+        saveButton.onClick.AddListener(SaveNN);
+        cancelSave.onClick.AddListener(SaveQuit);
+        saveNetworkButton.onClick.AddListener(SavePanel);
+        mainMenu.onClick.AddListener(MainMenu);
 
         nnVisualizeStart = networkVisualize.GetComponent<RectTransform>().anchoredPosition;
         networkStart = networkPanel.GetComponent<RectTransform>().anchoredPosition;
@@ -132,15 +150,12 @@ public class UIController : MonoBehaviour {
 
     void UpdateGraph(float maxFitness, float avgFitness, bool genFinish)
     {
+        maxFitness = Mathf.Clamp(maxFitness, 0, Mathf.Infinity);
+        avgFitness = Mathf.Clamp(avgFitness, 0, Mathf.Infinity);
         if (genFinish)
         {
             plotDataAvg.Add(avgFitness);
             plotDataMax.Add(maxFitness);
-        }
-        else
-        {
-            currentAvg = avgFitness;
-            currentMax = maxFitness;
         }
 
         if (plotDataAvg.Count < 1)
@@ -173,7 +188,7 @@ public class UIController : MonoBehaviour {
             temp = (Text)Instantiate(gridLabel, plotArea.transform, false);
             line = temp.GetComponent<RectTransform>();
             line.anchoredPosition = new Vector3((i + 1) * xDiff + 1.5f * margin, 1.5f * margin) - new Vector3(line.rect.width / 2, line.rect.height);
-            temp.text = ((i + 1) * plotMaxX / 10).ToString();
+            temp.text = (((i + 1) * plotMaxX / 10) + 1).ToString();
 
             lines.Add(line.gameObject);
         }
@@ -236,6 +251,34 @@ public class UIController : MonoBehaviour {
         lines.Clear();
     }
 
+    void SavePanel()
+    {
+        savePanel.SetActive(true);
+    }
+
+    void SaveNN()
+    {
+        if (saveInput.text == "")
+            return;
+
+        savePanel.SetActive(false);
+        if (activeNetworks.Count == 1)
+        {
+            SaveableObjects.SaveableNeuralNetwork saveableNetwork = new SaveableObjects.SaveableNeuralNetwork(saveInput.text, currentGenome);
+            saveableNetwork.Save();
+        }
+    }
+
+    void SaveQuit()
+    {
+        savePanel.SetActive(false);
+    }
+
+    void MainMenu()
+    {
+        SceneManager.LoadScene("MainScene");
+    }
+
     public void LoadNetwork(int i)
     {
         if (networkPanel.activeSelf == false)
@@ -248,10 +291,11 @@ public class UIController : MonoBehaviour {
             Destroy(networkVisualize.transform.GetChild(k).gameObject);
         }
         activeNetworks.Clear();
-        activeNetworks.Add(geneticAlgorithm.generations[curGeneration - 1].networks[i]);
+        currentGenome = carTrainer.ga.oldGenomes[curGeneration - 1][i];
+        activeNetworks.Add(carTrainer.ga.oldGenomes[curGeneration-1][i].CreateNetwork());
         networkVisualize.GetComponent<RectTransform>().anchoredPosition = nnVisualizeStart;
-        activeNetworks[0].VisualizeNetwork(perceptron, hSpace, vSpace, line, networkVisualize.transform, "Network");
-        AIcurrentFitness.text = "Fitness: " + activeNetworks[0].Fitness.ToString("F1");
+        activeNetworks[0].VisualizeNetwork(networkVisualize.GetComponent<RectTransform>(), perceptron, line, loopLink, false);
+        AIcurrentFitness.text = "Fitness: " + carTrainer.ga.oldGenomes[curGeneration-1][i].GetFitness().ToString("F1");
 
         currentI = i;
     }
@@ -263,40 +307,40 @@ public class UIController : MonoBehaviour {
             Destroy(networkVisualize.transform.GetChild(k).gameObject);
         }
         multipleSelected.gameObject.SetActive(true);
-        activeNetworks.Add(geneticAlgorithm.generations[curGeneration - 1].networks[i]);
-        float maxFitness = 0;
-        foreach(NeuralNetwork network in activeNetworks)
-        {
-            if (network.Fitness > maxFitness)
-                maxFitness = network.Fitness;
-        }
+        activeNetworks.Add(carTrainer.generationNetworks[i]);
+        //float maxFitness = 0;
+        //foreach (NeuralNetwork network in activeNetworks)
+        //{
+        //    if (network.Fitness > maxFitness)
+        //        maxFitness = network.Fitness;
+        //}
 
-        AIcurrentFitness.text = "Maximum Fitness of selection: " + activeNetworks[0].Fitness.ToString("F1");
+        //AIcurrentFitness.text = "Maximum Fitness of selection: " + activeNetworks[0].Fitness.ToString("F1");
 
     }
 
     public void DeactivateMultipleSelected(int i)
     {
         multipleSelected.gameObject.SetActive(true);
-        activeNetworks.Remove(geneticAlgorithm.generations[curGeneration - 1].networks[i]);
-        float maxFitness = 0;
+        activeNetworks.Remove(carTrainer.generationNetworks[i]);
+        //float maxFitness = 0;
 
-        foreach (NeuralNetwork network in activeNetworks)
-        {
-            if (network.Fitness > maxFitness)
-                maxFitness = network.Fitness;
-        }
+        //foreach (NeuralNetwork network in activeNetworks)
+        //{
+        //    if (network.Fitness > maxFitness)
+        //        maxFitness = network.Fitness;
+        //}
 
-        AIcurrentFitness.text = "Maximum Fitness of selection: " + activeNetworks[0].Fitness.ToString("F1");
+        //AIcurrentFitness.text = "Maximum Fitness of selection: " + activeNetworks[0].Fitness.ToString("F1");
 
     }
 
     public void DisableNetwork(int i, bool nonActive)
     {
-        geneticAlgorithm.generations[curGeneration-1].networks[i].output = null;
+        //carTrainer.generations[curGeneration - 1].networks[i].output = null;
         networkPanel.SetActive(false);
 
-        if(nonActive)
+        if (nonActive)
             currentI = -1;
     }
 
@@ -306,39 +350,55 @@ public class UIController : MonoBehaviour {
     }
 
     IEnumerator Pause()
-    { 
-        geneticAlgorithm.pause = true;
+    {
+        carTrainer.pause = true;
         pauseButton.interactable = false;
         pausingText.gameObject.SetActive(true);
 
-        while (!geneticAlgorithm.isPaused)
+        while (!carTrainer.isPaused)
             yield return null;
 
         pausingText.gameObject.SetActive(false);
-        resumeButton.interactable = true;   
+        resumeButton.interactable = true;
         networks.SetActive(true);
-        generationInput.text = (geneticAlgorithm.curGeneration).ToString();
-        curGeneration = geneticAlgorithm.curGeneration;
+        generationInput.text = (carTrainer.curGeneration).ToString();
+        curGeneration = carTrainer.curGeneration;
 
         if (curGeneration - 1 < 1)
             previousGenerationInput.interactable = false;
         else
             previousGenerationInput.interactable = true;
-        if (curGeneration + 1 > geneticAlgorithm.curGeneration)
+        if (curGeneration + 1 > carTrainer.curGeneration)
             nextGenerationInput.interactable = false;
         else
             nextGenerationInput.interactable = true;
+
+        SetActiveParticles(false);
+    }
+
+    void SetActiveParticles(bool isActive)
+    {
+        ParticleSystem[] particlessys = particles.GetComponentsInChildren<ParticleSystem>();
+        for(int i = 0; i < particlessys.Length; i++)
+        {
+            var em = particlessys[i].emission;
+            if(!isActive)
+                em.rateOverTime = 0;
+            else
+                em.rateOverTime = 3;
+        }
     }
 
     void Resume()
     {
+        SetActiveParticles(true);
         networks.SetActive(false);
         pauseButton.interactable = true;
         resumeButton.interactable = false;
         networkPanel.SetActive(false);
         multipleSelected.gameObject.SetActive(false);
 
-        geneticAlgorithm.isPaused = false;
+        carTrainer.isPaused = false;
     }
 
     void GenerationUp()
@@ -347,12 +407,12 @@ public class UIController : MonoBehaviour {
         curGeneration++;
         generationInput.text = (curGeneration).ToString();
 
-        if (curGeneration + 1 > geneticAlgorithm.curGeneration)
+        if (curGeneration + 1 > carTrainer.curGeneration)
             nextGenerationInput.interactable = false;
         if (previousGenerationInput.interactable == false)
             previousGenerationInput.interactable = true;
 
-        if(currentI >= 0)
+        if (currentI >= 0)
             LoadNetwork(currentI);
     }
 
@@ -368,7 +428,7 @@ public class UIController : MonoBehaviour {
         if (nextGenerationInput.interactable == false)
             nextGenerationInput.interactable = true;
 
-        if(currentI >= 0)
+        if (currentI >= 0)
             LoadNetwork(currentI);
 
     }
@@ -382,13 +442,13 @@ public class UIController : MonoBehaviour {
         {
             curGeneration = int.Parse(gen);
         }
-        catch(System.Exception e)
+        catch (System.Exception)
         {
             generationInput.text = curGeneration.ToString();
             return;
         }
-        if (curGeneration > geneticAlgorithm.curGeneration)
-            curGeneration = geneticAlgorithm.curGeneration;
+        if (curGeneration > carTrainer.curGeneration)
+            curGeneration = carTrainer.curGeneration;
         else if (curGeneration < 1)
             curGeneration = 1;
 
@@ -410,7 +470,7 @@ public class UIController : MonoBehaviour {
         activeRoutines.Add(StartCoroutine(_Play(false)));
     }
 
-    void Challenge()
+    public void Challenge()
     {
         ResetPlay();
 
@@ -425,15 +485,21 @@ public class UIController : MonoBehaviour {
     IEnumerator _Play(bool challenge)
     {
         EventSystem.current.SetSelectedGameObject(null);
-
         yourCurrentFitness.gameObject.SetActive(true);
         timeText.gameObject.SetActive(true);
         multipleSelected.gameObject.SetActive(false);
-        timeText.text = geneticAlgorithm.simulationTime.ToString("F2");
+        timeText.text = GA_Parameters.simulationTime.ToString("F2");
         List<NeuralNetwork> networks = new List<NeuralNetwork>();
+        SetActiveParticles(false);
 
         networks.AddRange(activeNetworks);
-        if(challenge)
+
+        for(int i = 0; i < activeNetworks.Count; i++)
+        {
+            activeNetworks[i].Reset();
+        }
+
+        if (challenge)
             networks.Add(null);
 
         if (challenge)
@@ -441,13 +507,13 @@ public class UIController : MonoBehaviour {
             winLoseMenu.gameObject.SetActive(true);
             winLoseMenu.ReadySetGo();
 
-            Coroutine routine = geneticAlgorithm.StartCoroutine(geneticAlgorithm.CreateCars(networks, true, false, 4));
+            Coroutine routine = carTrainer.StartCoroutine(carTrainer.CreateCars(networks, true, false, 4));
             activeRoutines.Add(routine);
         }
 
         else
         {
-            Coroutine routine = geneticAlgorithm.StartCoroutine(geneticAlgorithm.CreateCars(networks, false, true, 0));
+            Coroutine routine = carTrainer.StartCoroutine(carTrainer.CreateCars(networks, false, true, 0));
             activeRoutines.Add(routine);
 
 
@@ -455,6 +521,7 @@ public class UIController : MonoBehaviour {
         }
         runningPlay = true;
         float measureTime = Time.realtimeSinceStartup;
+
         while (runningPlay)
         {
             if (CameraController.currentActiveMainCamera == null)
@@ -471,22 +538,24 @@ public class UIController : MonoBehaviour {
                 CarController.cameras[0].gameObject.SetActive(true);
                 CameraController.currentActiveMainCamera = CarController.cameras[0];
             }
+            activeNetworks[0].SetNetworkValues();
+
 
             float maxAIfitness = 0;
 
-            for (int i = 0; i < geneticAlgorithm.carControllers.Count; i++)
+            for (int i = 0; i < carTrainer.carControllers.Count; i++)
             {
-                if (geneticAlgorithm.carControllers[i].GetNetwork() == null)
-                    yourCurrentFitness.text = "Your fitness: " + geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness().ToString("F1");
+                if (carTrainer.carControllers[i].GetNetwork() == null)
+                    yourCurrentFitness.text = "Your fitness: " + carTrainer.carControllers[i].GetFitnessTracker().GetFitness().ToString("F1");
                 else
                 {
-                    if (geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness() > maxAIfitness)
-                        maxAIfitness = geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness();
+                    if (carTrainer.carControllers[i].GetFitnessTracker().GetFitness() > maxAIfitness)
+                        maxAIfitness = carTrainer.carControllers[i].GetFitnessTracker().GetFitness();
                 }
             }
 
             AIcurrentFitness.text = "Max AI fitness: " + maxAIfitness.ToString("F1");
-            timeText.text = "Time Left: " + (geneticAlgorithm.simulationTime - geneticAlgorithm.carControllers[0].GetFitnessTracker().time).ToString("F2");
+            timeText.text = "Time Left: " + (GA_Parameters.simulationTime - carTrainer.carControllers[0].GetFitnessTracker().time).ToString("F2");
 
             if (Input.GetKeyDown(KeyCode.V) && !challenge)
             {
@@ -505,7 +574,7 @@ public class UIController : MonoBehaviour {
                 }
             }
             measureTime = Time.realtimeSinceStartup;
-            yield return new WaitForSeconds(0.1f);
+            yield return new WaitForSeconds(0.025f);
 
         }
 
@@ -513,12 +582,12 @@ public class UIController : MonoBehaviour {
         {
             float maxFitness = 0;
             NeuralNetwork maxNetwork = null;
-            for (int i = 0; i < geneticAlgorithm.carControllers.Count; i++)
+            for (int i = 0; i < carTrainer.carControllers.Count; i++)
             {
-                if (geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness() > maxFitness)
+                if (carTrainer.carControllers[i].GetFitnessTracker().GetFitness() > maxFitness)
                 {
-                    maxFitness = geneticAlgorithm.carControllers[i].GetFitnessTracker().GetFitness();
-                    maxNetwork = geneticAlgorithm.carControllers[i].GetNetwork();
+                    maxFitness = carTrainer.carControllers[i].GetFitnessTracker().GetFitness();
+                    maxNetwork = carTrainer.carControllers[i].GetNetwork();
                 }
             }
 
@@ -543,6 +612,8 @@ public class UIController : MonoBehaviour {
 
     void QuitPlay()
     {
+        SetActiveParticles(false);
+        UICamera.enabled = true;
         mainPanel.GetComponent<CanvasGroup>().alpha = 1;
         networkPanel.GetComponent<RectTransform>().anchoredPosition = networkStart;
 
@@ -557,7 +628,7 @@ public class UIController : MonoBehaviour {
 
         winLoseMenu.CancelAll();
 
-        geneticAlgorithm.SetUpdateRate(0);
+        carTrainer.SetUpdateRate(0);
     }
 
     void Quit()

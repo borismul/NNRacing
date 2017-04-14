@@ -32,13 +32,13 @@ public class Track
 
         currentPoint = trackPoints[0];
         nextPoint = trackPoints[1];
-        pointNum = 0;
+        pointNum = 2;
         this.tracker = tracker;
     }
 
     public void Reset()
     {
-        foreach(TrackPoint point in trackPoints)
+        foreach (TrackPoint point in trackPoints)
         {
             point.Reset();
         }
@@ -47,33 +47,56 @@ public class Track
 
         nextPoint = trackPoints[1];
 
-        pointNum = 0;
+        pointNum = 2;
     }
 
     public float CheckSetDone(Vector3 carPosition)
     {
-        if (CheckDistance(carPosition) < 4)
+        float a = CheckDistance(carPosition);
+        float b = CheckDistance(carPosition, currentPoint);
+        Vector3 c = currentPoint.position;
+        int startPoint = pointNum;
+        float totDistance = 0;
+        for (int i = 0; i < 30; i++)
         {
-            nextPoint.SetDone();
-            currentPoint = nextPoint;
-            nextPoint = trackPoints[pointNum];
-            pointNum++;
+            if (startPoint + i == trackPoints.Count)
+                break;
 
-            if (pointNum == trackPoints.Count)
+            if (CheckDistance(carPosition, trackPoints[startPoint + i]) < CheckDistance(carPosition, currentPoint))
             {
-                tracker.laps++;
-                Reset();
+                for (int j = 0; j <= i; j++)
+                {
+                    if (trackPoints[startPoint + j].isDone)
+                        continue;
 
-                currentPoint = trackPoints[0];
-                nextPoint = trackPoints[1];
+                    trackPoints[startPoint + j].SetDone();
+                    currentPoint = nextPoint;
+                    nextPoint = trackPoints[pointNum];
+                    pointNum++;
+
+                    if (pointNum == trackPoints.Count)
+                    {
+                        tracker.laps++;
+                        Reset();
+
+                        currentPoint = trackPoints[0];
+                        nextPoint = trackPoints[1];
+                    }
+
+                    totDistance += trackPoints[startPoint + j].distance;
+                }
+
             }
 
-            return currentPoint.distance;
         }
-        else
-        {
-            return 0;
-        }
+
+        return totDistance;
+
+    }
+
+    public float CheckDistance(Vector3 carPosition, TrackPoint point)
+    {
+        return Vector3.Distance(carPosition, point.position);
     }
 
     public float CheckDistance(Vector3 carPosition)

@@ -24,11 +24,11 @@ public class CarController : MonoBehaviour
 
     // Car variables that determine the movement of the car
     float acc;
-    float turn;
+    public float turn;
     float curRotAngle;
     float prevRotAngle;
 
-    Vector3 velocity;
+    public Vector3 velocity;
     Vector3 accVector;
 
     // Colider of the car
@@ -56,10 +56,10 @@ public class CarController : MonoBehaviour
     void Start()
     {
         // Set important car parameters
-        accSpeed = GeneticAlgorithm.instance.accSpeed;
-        breakSpeed = GeneticAlgorithm.instance.breakSpeed;
-        turnSpeed = GeneticAlgorithm.instance.turnSpeed;
-        maxSpeed = GeneticAlgorithm.instance.maxVelocity;
+        accSpeed = GA_Parameters.accSpeed;
+        breakSpeed = GA_Parameters.breakSpeed;
+        turnSpeed = GA_Parameters.turnSpeed;
+        maxSpeed = GA_Parameters.maxSpeed;
     }
 
     void Update()
@@ -77,7 +77,7 @@ public class CarController : MonoBehaviour
         GetInputs();
 
         // Update the car. If something went wrong stop simulation
-        if (!UpdateCar(Time.deltaTime, GeneticAlgorithm.instance.stopAtCrash))
+        if (!UpdateCar(Time.deltaTime, GA_Parameters.stopAtCrash))
         {
             trackManager.SelectNextTrack();
         }
@@ -104,7 +104,7 @@ public class CarController : MonoBehaviour
     public bool UpdateCar(float deltaTime, bool stopAtCrash)
     {
         // If the current neural network is misformed stop simulation
-        if (network != null && !CalculateNetworkOutput(network.GetLayers()[0].Count))
+        if (network != null && !CalculateNetworkOutput(GA_Parameters.inputs))
             return false;
 
         if (network == null)
@@ -149,8 +149,8 @@ public class CarController : MonoBehaviour
             velocity *= maxSpeed;
         }
 
-        //if (Vector3.Dot(velocity, transform.forward) < 0f)
-        //    velocity = Vector3.zero;
+        if (Vector3.Dot(velocity, transform.forward) < 0f)
+            velocity = Vector3.zero;
 
         // Determine the rotation angle of the car
         curRotAngle += turn * deltaTime;
@@ -218,7 +218,7 @@ public class CarController : MonoBehaviour
     }
 
     // Method that gets all inputs for the neural network and then calculates the output of the network
-    public bool CalculateNetworkOutput(int visionPoints)
+    public bool CalculateNetworkOutput(int inputs)
     {
         // Create a new list of inputs
         List<float> input = new List<float>();
@@ -227,11 +227,13 @@ public class CarController : MonoBehaviour
         float angle;
 
         RaycastHit hit;
+
+        int visionPoints = inputs - 1;
         // Rotate around the car and cast rays to see how far each wall is at that rotation
-        for (int i = 0; i < visionPoints - 3; i++)
+        for (int i = 0; i < visionPoints; i++)
         {
             // Cosine space the angles of the vectors at which a wall distance is measured
-            angle = (1 - Mathf.Cos(i * Mathf.PI/ (visionPoints - 1))) * Mathf.PI;
+            angle = (1 - Mathf.Cos(i * Mathf.PI/ visionPoints)) * Mathf.PI;
             
             // Create the direction by rotating the forward vector by angle
             Vector3 direction = new Vector3(Mathf.Cos(angle) * transform.forward.x + Mathf.Sin(angle) * transform.forward.z, 0, -Mathf.Sin(angle) * transform.forward.x + Mathf.Cos(angle) * transform.forward.z);
@@ -240,11 +242,11 @@ public class CarController : MonoBehaviour
 
             //Cast the ray
             if (Physics.Raycast(transform.position, direction, out hit, Mathf.Infinity))
-                curdist = Mathf.Clamp(hit.distance, 0, 500) /500;
+                curdist = hit.distance;
             else
                 curdist = 1;
 
-            Debug.DrawRay(transform.position, direction * hit.distance, Color.red);
+            //Debug.DrawRay(transform.position, direction * hit.distance, Color.red);
 
             // Add as input
             input.Add(curdist);
@@ -252,8 +254,6 @@ public class CarController : MonoBehaviour
 
         // add the velocity as input
         input.Add(velocity.magnitude);
-        input.Add(accVector.magnitude);
-        input.Add(1);
 
         return SetOutput(input);
         
@@ -262,27 +262,29 @@ public class CarController : MonoBehaviour
     // Get the output of the neural network and set it to the inputs for the cars
     public bool SetOutput(List<float> input)
     { 
-        List<float> output = network.GetOutput(input);
+        List<float> output = network.Update(input);
 
         if (output == null || output.Count < 4)
             return false;
 
-        //for (int i = 0; i < output.Count; i++)
-        //{
-        //    if (output[i] < 0)
-        //        output[i] = 0;
-        //}
-
-        //if ((output[0] > 0 && output[1] > 1) || (output[0] == 0 && output[1] == 0))
-        //    acc = 0;
-        //else
-        //    acc = output[0] * accSpeed - output[1] * breakSpeed;
-
-
-        //turn = (output[2] - output[3]) * turnSpeed;
-
+        for (int i = 0; i < output.Count; i++)
+        {
+            if (output[i] > 0.5f)
+                output[i] = 1;
+            else
+                output[i] = 0;
+        }
+        
         acc = output[0] * accSpeed - output[1] * breakSpeed;
-        turn = output[2] * turnSpeed - output[3] * turnSpeed;
+        turn = (output[2] - output[3]) * turnSpeed;
+
+        //if (output[0] > 0.5f)
+        //    acc = (output[0] - 0.5f) * accSpeed;
+        //else
+        //    acc = (output[0] - 0.5f) * breakSpeed;
+
+        //turn = (output[1] - 0.5f) * turnSpeed;
+
 
         return true;
     }
@@ -294,34 +296,13 @@ public class CarController : MonoBehaviour
         fitnessTracker.Reset();
 
         if (network != null)
-        {
-            if(!replay)
-                network.Fitness = 0;
-
             carFollowCamera.gameObject.SetActive(false);
-        }
+        
         else
         {
             carFollowCamera.gameObject.SetActive(true);
             CameraController.currentActiveMainCamera = carFollowCamera;
         }
-    }
-
-    // Save the networks fitness
-    public void SaveFitness()
-    {
-        // Temporary ######
-        if (fitnessTracker.GetFitness() > GeneticAlgorithm.instance.maxFitness)
-            GeneticAlgorithm.instance.maxFitness = fitnessTracker.GetFitness();
-
-        if (network == null)
-            return;
-
-        network.Fitness = fitnessTracker.GetFitness();
-
-        //if (network.Fitness > GeneticAlgorithm.instance.maxFitness)
-        //    GeneticAlgorithm.instance.maxFitness = network.Fitness;
-
     }
 
     // Void that allows the car to stop moving

@@ -1,9 +1,10 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class CameraController : MonoBehaviour {
+public class CameraController : MonoBehaviour
+{
 
-    enum carFollowObject { thirdPerson, hood, top}
+    enum carFollowObject { thirdPerson, hood, top }
 
     // Object that the camera can follow
     GameObject[] followObjects;
@@ -19,16 +20,18 @@ public class CameraController : MonoBehaviour {
 
     public static CameraController currentActiveMainCamera;
 
+    CarController car;
+
     void Update()
     {
         SetNextFollowObject();
     }
 
-	// Update is called once per frame
-	void LateUpdate ()
+    // Update is called once per frame
+    void LateUpdate()
     {
-        UpdateTransform();
-	}
+        //UpdateTransform();
+    }
 
     void OnEnable()
     {
@@ -40,42 +43,47 @@ public class CameraController : MonoBehaviour {
     }
 
     // Method that lets the camera follow the current carFollowObject
-    void UpdateTransform()
+    public void UpdateTransform()
     {
         if (followObjects == null)
             return;
 
+        if (Vector3.Distance(transform.position, followObjects[(int)followObjectIndex].transform.position) > 2)
+        {
+            transform.position = followObjects[(int)followObjectIndex].transform.position;
+            transform.rotation = followObjects[(int)followObjectIndex].transform.rotation;
+            return;
+        }
+
         if (followObjectIndex == carFollowObject.thirdPerson)
         {
-            float posDistance = Vector3.Distance(transform.position, followObjects[(int)followObjectIndex].transform.position);
             // Follow exactly the position
-            transform.position = Vector3.Lerp(transform.position, followObjects[(int)followObjectIndex].transform.position, (posDistance + thirdLerpSpeedTransform) * 1f/GeneticAlgorithm.instance.fps);
+            transform.position = Vector3.Lerp(transform.position, followObjects[(int)followObjectIndex].transform.position, (car.maxSpeed * 0.4f + Mathf.Sqrt(car.velocity.magnitude)) * 1f/GA_Parameters.fps);
 
-            float rotDistance = Quaternion.Angle(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation);
             // Lerp towards rotation to avoid stuttering
-            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, (Mathf.Pow(rotDistance, 0.5f) + thirdLerpSpeedRotation) * 1f / GeneticAlgorithm.instance.fps);
+            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, (car.turnSpeed * 0.1f) * 1f / GA_Parameters.fps);
         }
-        
-        else if(followObjectIndex == carFollowObject.hood)
+
+        else if (followObjectIndex == carFollowObject.hood)
         {
             // Follow exactly the position
             transform.position = followObjects[(int)followObjectIndex].transform.position;
 
-            float rotDistance = Quaternion.Angle(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation);
             // Lerp towards rotation to avoid stuttering
-            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, (rotDistance + hoodLerpSpeedRotation) * 1f / GeneticAlgorithm.instance.fps);
+            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, car.turnSpeed * 1f / GA_Parameters.fps);
         }
 
         else
         {
             transform.position = followObjects[(int)followObjectIndex].transform.position;
-            transform.rotation = Quaternion.Euler(0, 90, 0);
+            transform.rotation = Quaternion.Euler(90, 0, 0);
         }
     }
 
     // Method that allows to set another car to follow
     public void SetFollowCar(CarController carController)
     {
+        car = carController;
         followObjects = carController.carFollowObjects;
     }
 

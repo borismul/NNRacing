@@ -24,7 +24,7 @@ public class NNTextController : MonoBehaviour, IPointerClickHandler
 
     void OnDisable()
     {
-        if(isActive)
+        if (isActive)
             UIController.instance.DisableNetwork(i, true);
     }
 
@@ -40,7 +40,7 @@ public class NNTextController : MonoBehaviour, IPointerClickHandler
             {
                 if (activeImage != null)
                 {
-                    for(int i = 0; i < activeImage.Count; i++)
+                    for (int i = 0; i < activeImage.Count; i++)
                     {
                         activeImage[i].color = normalColor;
                         activeImage[i].GetComponent<NNTextController>().isActive = false;
@@ -116,7 +116,7 @@ public class NNTextController : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerExit()
     {
-        if(!isActive)
+        if (!isActive)
             GetComponent<Image>().color = normalColor;
         else
             GetComponent<Image>().color = clickedColor;

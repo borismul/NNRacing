@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using B83.ExpressionParser;
 
-public class FitnessTracker : MonoBehaviour {
+public class FitnessTracker : MonoBehaviour
+{
 
     public static bool[] isInput;
 
@@ -32,9 +33,16 @@ public class FitnessTracker : MonoBehaviour {
 
     public bool UpdateFitness(float time, bool stopAtCrash)
     {
-        if ((laps > 0 && !trackManager.currentTrack.hasLaps) || laps == GeneticAlgorithm.instance.laps)
+        discreteDistance += trackManager.CheckSetDone(carController.transform.position);
+
+        distance = discreteDistance - trackManager.currentTrack.CheckDistance(carController.transform.position);
+        this.time += time;
+
+        if ((laps > 0 && !trackManager.currentTrack.hasLaps) || laps == GA_Parameters.laps)
         {
+            distance = discreteDistance;
             return false;
+
         }
 
         if (trackManager.currentTrack.CheckDistance(carController.transform.position) > 20)
@@ -45,44 +53,34 @@ public class FitnessTracker : MonoBehaviour {
                 return false;
         }
 
-        discreteDistance += trackManager.CheckSetDone(carController.transform.position);
 
-        distance = discreteDistance - trackManager.currentTrack.CheckDistance(carController.transform.position);
-        this.time += time;
 
         return true;
     }
 
     public double[] CreateInputArray()
     {
-        double[] inputs = new double[4];
+        List<double> inputs = new List<double>();
         for (int i = 0; i < keys.Count; i++)
         {
             if (keys[i] == "x")
-                inputs[i] = distance;
+                inputs.Add(distance);
             else if (keys[i] == "t")
-                inputs[i] = time;
+                inputs.Add(time);
             else if (keys[i] == "c")
-                inputs[i] = crashes;
+                inputs.Add(crashes);
             else if (keys[i] == "l")
-                inputs[i] = totalLaps;
+                inputs.Add(totalLaps);
         }
-        return inputs;
+        return inputs.ToArray();
     }
 
     public float GetFitness()
     {
-        List<double> inputs = new List<double>();
-        double[] maybeInputs = CreateInputArray();
+        double[] inputs = CreateInputArray();
 
-        for (int i = 0; i < isInput.Length; i++)
-        {
-            if (isInput[i])
-                inputs.Add(maybeInputs[i]);
-        }
-
-        float fitness = (float)fitnessDelegate.Invoke(inputs.ToArray());
-        return fitness;
+        float fitness = (float)fitnessDelegate.Invoke(inputs);
+        return Mathf.Clamp(fitness, 0, Mathf.Infinity);
     }
 
     public void AddCrash()

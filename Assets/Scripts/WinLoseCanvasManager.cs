@@ -31,6 +31,7 @@ public class WinLoseCanvasManager : MonoBehaviour {
 
         timeStart = Time.realtimeSinceStartup;
         otherTimer = timeStart + 1;
+
         InvokeRepeating("CountDown", 1, 1f/60);
 
     }

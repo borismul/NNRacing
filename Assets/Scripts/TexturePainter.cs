@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class TexturePainter : MonoBehaviour {
 
@@ -10,17 +11,28 @@ public class TexturePainter : MonoBehaviour {
     int textureHeight = 500;
 
     public int brushSize = 5;
-
     public static TexturePainter instance;
 
+    GameObject trackpoints;
+
+    Ray lastRay;
+
+    public bool inMenu;
     void Awake()
     {
         instance = this;
     }
 
     // Use this for initialization
-    void Start ()
+    void OnEnable ()
     {
+        Reset();
+
+    }
+
+    public void Reset()
+    {
+        lastRay = new Ray();
         ren = GetComponent<Renderer>();
         texture = new Texture2D(textureWidth, textureHeight, TextureFormat.ARGB32, true);
 
@@ -36,40 +48,102 @@ public class TexturePainter : MonoBehaviour {
         texture.filterMode = FilterMode.Point;
         ren.material.mainTexture = texture;
 
+        if (trackpoints != null)
+            Destroy(trackpoints);
+
+        trackpoints = new GameObject("TrackPoints");
+        trackpoints.AddComponent<TrackPoints>();
+
+
     }
 
     // Update is called once per frame
-    void Update () {
-        UpdateTexture();
+    void Update ()
+    {
+        if(!inMenu && SceneManager.GetActiveScene().name != "MainScene")
+            UpdateTexture();
 	}
-
 
     void UpdateTexture()
     {
         if (!Input.GetKey(KeyCode.Mouse0))
             return;
 
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Ray rayNow = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
-        if(Physics.Raycast(ray, out hit, Mathf.Infinity))
+
+        List<Ray> rays = new List<Ray>();
+        Vector3 originalDist = (rayNow.origin - lastRay.origin);
+
+        if (lastRay.origin != Vector3.zero && (Physics.Raycast(rayNow, Mathf.Infinity)))
         {
-            Texture2D tex = (Texture2D)hit.collider.gameObject.GetComponent<Renderer>().material.mainTexture;
-            Vector2 pixel = new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight);
+            float lastDist = 50;
 
-            for(int i = 0; i < brushSize; i++)
+            while (true)
             {
-                for(int j = 0; j < brushSize; j++)
+                if(rays.Count == 0)
+                    rays.Add(new Ray(lastRay.origin + originalDist.normalized * ( 10f/textureWidth), rayNow.direction));
+                else
+                    rays.Add(new Ray(rays[rays.Count - 1].origin + originalDist.normalized * ( 10f/textureWidth), rayNow.direction));
+
+                if (Vector3.Distance(rays[rays.Count - 1].origin, rayNow.origin) > lastDist || lastDist < 0.00001f)
                 {
-                    Vector2 currentPixel = new Vector2(pixel.x - brushSize / 2 + i, pixel.y - brushSize / 2 + j);
-                    if (Vector2.Distance(pixel, currentPixel) * 2 > brushSize || currentPixel.x > textureWidth || currentPixel.y > textureHeight
-                        || currentPixel.x < 0 || currentPixel.y < 0)
-                        continue;
-
-
-                    tex.SetPixel(Mathf.FloorToInt(currentPixel.x), Mathf.FloorToInt(currentPixel.y), Color.red);
+                    rays.RemoveAt(rays.Count - 1);
+                    break;
                 }
+
+                lastDist = Vector3.Distance(rays[rays.Count - 1].origin, rayNow.origin);
             }
-            tex.Apply();
         }
+        else
+            rays.Add(rayNow);
+
+        for (int k = 0; k < rays.Count; k++)
+        {
+            Ray ray = rays[k];
+            if (Physics.Raycast(ray, out hit, Mathf.Infinity))
+            {
+                Texture2D tex = (Texture2D)hit.collider.gameObject.GetComponent<Renderer>().material.mainTexture;
+                Vector2 pixel = new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight);
+
+
+
+                for (int i = 0; i < brushSize; i++)
+                {
+                    for (int j = 0; j < brushSize; j++)
+                    {
+                        Vector2 currentPixel = new Vector2(pixel.x - brushSize / 2 + i, pixel.y - brushSize / 2 + j);
+                        if (Vector2.Distance(pixel, currentPixel) * 2 > brushSize || currentPixel.x > textureWidth || currentPixel.y > textureHeight
+                            || currentPixel.x < 0 || currentPixel.y < 0)
+                            continue;
+
+                        if (tex.GetPixel(Mathf.FloorToInt(currentPixel.x), Mathf.FloorToInt(currentPixel.y)) == Color.white)
+                            continue;
+
+                        if (tex.GetPixel(Mathf.FloorToInt(currentPixel.x), Mathf.FloorToInt(currentPixel.y)) == Color.gray)
+                            continue;
+
+                        tex.SetPixel(Mathf.FloorToInt(currentPixel.x), Mathf.FloorToInt(currentPixel.y), Color.gray);
+                    }
+                }
+                tex.Apply();
+                lastRay = rayNow;
+                if (tex.GetPixel(Mathf.FloorToInt(pixel.x), Mathf.FloorToInt(pixel.y)) != Color.white)
+                {
+                    CreateTrackPoint(hit.point);
+                    tex.SetPixel(Mathf.FloorToInt(pixel.x), Mathf.FloorToInt(pixel.y), Color.white);
+
+                }
+
+            }
+        }
+
+    }
+
+    void CreateTrackPoint(Vector3 position)
+    {
+        GameObject trackpoint = new GameObject("TrackPoint");
+        trackpoint.transform.parent = trackpoints.transform;
+        trackpoint.transform.position = position;
     }
 }
