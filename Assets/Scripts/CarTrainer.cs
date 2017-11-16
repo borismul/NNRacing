@@ -252,7 +252,7 @@ public class CarTrainer : MonoBehaviour
     void InitializeNetworks()
     {
         pause = false;
-        ga = new GeneticAlgorithm(GA_Parameters.populationSize, GA_Parameters.inputs, GA_Parameters.outputs);
+        ga = new GeneticAlgorithm(GA_Parameters.populationSize, GA_Parameters.inputs, 1, new int[1] { 10 }, GA_Parameters.outputs);
     }
 
     public void SetUpdateRate(int updateRate)

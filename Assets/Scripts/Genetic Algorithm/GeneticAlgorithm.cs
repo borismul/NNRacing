@@ -33,8 +33,6 @@ public class GeneticAlgorithm
         totalAdjustedFitness = 0;
         averageAdjustedFitness = 0;
 
-        //Random.InitState((int)System.DateTime.Now.Ticks);
-
         genomes = new List<Genome>();
         bestGenomes = new List<Genome>();
         species = new List<Species>();
@@ -47,6 +45,35 @@ public class GeneticAlgorithm
         }
 
         Genome genome = new Genome(1, inputs, outputs);
+
+        innovations = new Innovations(genome.GetConnectionGenes(), genome.GetPerceptronGenes());
+
+    }
+
+    public GeneticAlgorithm(int size, int inputs, int hidden, int[] hiddenNodes, int outputs)
+    {
+        populationSize = size;
+        currentGeneration = 0;
+        innovations = null;
+        nextGenomeID = 0;
+        nextSpeciesID = 0;
+        FittestGenome = 0;
+        bestFitnessSoFar = 0;
+        totalAdjustedFitness = 0;
+        averageAdjustedFitness = 0;
+
+        genomes = new List<Genome>();
+        bestGenomes = new List<Genome>();
+        species = new List<Species>();
+        oldGenomes = new List<List<Genome>>();
+
+        for (int i = 0; i < size; i++)
+        {
+            genomes.Add(new Genome(nextGenomeID, inputs, hidden, hiddenNodes, outputs));
+            nextGenomeID++;
+        }
+
+        Genome genome = new Genome(nextGenomeID, inputs, hidden, hiddenNodes, outputs);
 
         innovations = new Innovations(genome.GetConnectionGenes(), genome.GetPerceptronGenes());
 

@@ -29,6 +29,7 @@ public class CarController : MonoBehaviour
     float prevRotAngle;
 
     public Vector3 velocity;
+
     Vector3 accVector;
 
     // Colider of the car
@@ -40,6 +41,8 @@ public class CarController : MonoBehaviour
 
     // The neural network that controls the car
     NeuralNetwork network;
+
+
 
     void Awake()
     {
@@ -241,19 +244,18 @@ public class CarController : MonoBehaviour
             float curdist;
 
             //Cast the ray
-            if (Physics.Raycast(transform.position, direction, out hit, Mathf.Infinity))
+            if (Physics.Raycast(transform.position, direction, out hit, Mathf.Infinity, mask))
                 curdist = hit.distance;
             else
-                curdist = 1;
+                curdist = -1;
 
             //Debug.DrawRay(transform.position, direction * hit.distance, Color.red);
-
             // Add as input
-            input.Add(curdist);
+            input.Add((curdist - 10) /25);
         }
 
         // add the velocity as input
-        input.Add(velocity.magnitude);
+        input.Add((velocity.magnitude - 15) / 5);
 
         return SetOutput(input);
         

@@ -48,7 +48,7 @@ public class NeuralNetwork
             }
 
             curPerceptron.lastOutput = curPerceptron.output;
-            curPerceptron.output = Sigmoid(curPerceptron.SumActivation, curPerceptron.activationResponse);
+            curPerceptron.output = ReLu(curPerceptron.SumActivation, curPerceptron.activationResponse);
 
             if(curPerceptron.type == NodeType.Output)
             {
@@ -71,6 +71,14 @@ public class NeuralNetwork
             return 1;
         else
             return 0;
+    }
+
+    float ReLu(float input, float response)
+    {
+        if (input - response < 0)
+            return 0;
+        else
+            return (input - response);
     }
 
     public void Reset()
