@@ -52,9 +52,6 @@ public class Track
 
     public float CheckSetDone(Vector3 carPosition)
     {
-        float a = CheckDistance(carPosition);
-        float b = CheckDistance(carPosition, currentPoint);
-        Vector3 c = currentPoint.position;
         int startPoint = pointNum;
         float totDistance = 0;
         for (int i = 0; i < 30; i++)

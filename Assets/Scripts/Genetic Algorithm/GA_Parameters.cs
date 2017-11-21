@@ -24,6 +24,8 @@ public static class GA_Parameters {
     public static float maxWeightPerturbation = 0.5f;
     public static float weightReplaceProb = 0.3f;
 
+    public static float mutParMutRate = 0;
+
     public static int maxPermittedPerceptrons = 500;
 
     // Species Parameters
@@ -53,8 +55,7 @@ public static class GA_Parameters {
     public static float maxSpeed;
 
     // Under The Hood Properties
-    public static int carsPerFrame;
-    public static int carUpdateRate = 0;
+    public static float updateRate = 0;
 
     public static int triesToFindLink = 100;
     public static int triesToFindLoopedLink = 100;

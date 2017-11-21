@@ -21,6 +21,9 @@ public class GeneticAlgorithm
     public int FittestGenome;
     public float bestFitnessSoFar;
 
+    List<Genome> newPopulation = new List<Genome>();
+    List<NeuralNetwork> newNetworks = new List<NeuralNetwork>();
+
     public GeneticAlgorithm(int size, int inputs, int outputs)
     {
         populationSize = size;
@@ -40,14 +43,15 @@ public class GeneticAlgorithm
 
         for (int i = 0; i < size; i++)
         {
-            genomes.Add(new Genome(nextGenomeID, inputs, outputs));
+            genomes.Add(new Genome(nextGenomeID, inputs, outputs, new Genome.MutParameters()));
             nextGenomeID++;
         }
 
-        Genome genome = new Genome(1, inputs, outputs);
+        Genome genome = new Genome(1, inputs, outputs, new Genome.MutParameters());
 
         innovations = new Innovations(genome.GetConnectionGenes(), genome.GetPerceptronGenes());
 
+        GA_Parameters.maxSpecies = GA_Parameters.populationSize - 1;
     }
 
     public GeneticAlgorithm(int size, int inputs, int hidden, int[] hiddenNodes, int outputs)
@@ -69,13 +73,14 @@ public class GeneticAlgorithm
 
         for (int i = 0; i < size; i++)
         {
-            genomes.Add(new Genome(nextGenomeID, inputs, hidden, hiddenNodes, outputs));
+            genomes.Add(new Genome(nextGenomeID, inputs, hidden, hiddenNodes, outputs, new Genome.MutParameters()));
             nextGenomeID++;
         }
 
-        Genome genome = new Genome(nextGenomeID, inputs, hidden, hiddenNodes, outputs);
+        Genome genome = new Genome(nextGenomeID, inputs, hidden, hiddenNodes, outputs, new Genome.MutParameters());
 
         innovations = new Innovations(genome.GetConnectionGenes(), genome.GetPerceptronGenes());
+        GA_Parameters.maxSpecies = GA_Parameters.populationSize - 1;
 
     }
 
@@ -103,7 +108,7 @@ public class GeneticAlgorithm
 
         SpeciateAndCaluclateSpawnLevels();
 
-        List<Genome> newPopulation = new List<Genome>();
+        newPopulation.Clear();
 
         int spawnedSoFar = 0;
 
@@ -164,12 +169,12 @@ public class GeneticAlgorithm
                         offSpring.SetID(nextGenomeID);
 
                         if (offSpring.NumPerceptrons() < GA_Parameters.maxPermittedPerceptrons)
-                            offSpring.AddNeuron(GA_Parameters.chanceAddPerceptron, ref innovations, GA_Parameters.triesToFindLink);
+                            offSpring.AddNeuron(offSpring.mutPar.addPercepProb, ref innovations, GA_Parameters.triesToFindLink);
 
-                        offSpring.AddLink(GA_Parameters.chanceToAddLink, GA_Parameters.chanceRecurrentLink, ref innovations, GA_Parameters.triesToFindLoopedLink, GA_Parameters.addLinkAttempts);
-                        offSpring.MutateWeights(GA_Parameters.weightMutationRate, GA_Parameters.weightReplaceProb, GA_Parameters.maxWeightPerturbation);
+                        offSpring.AddLink(offSpring.mutPar.addLinkProb, offSpring.mutPar.recurAddProb, ref innovations, GA_Parameters.triesToFindLoopedLink, GA_Parameters.addLinkAttempts);
+                        offSpring.MutateWeights(offSpring.mutPar.weightMutRate, offSpring.mutPar.weightRepProb, offSpring.mutPar.maxWeightPerturbation);
 
-                        offSpring.MutateActivationResponse(GA_Parameters.activationMutationChance, GA_Parameters.maxActivationPerturbation);
+                        offSpring.MutateActivationResponse(offSpring.mutPar.activationMutationChance, offSpring.mutPar.maxActivationPerturbation);
                     }
                     offSpring.SortGenes();
 
@@ -195,9 +200,12 @@ public class GeneticAlgorithm
             }
         }
 
-        oldGenomes.Add(genomes.GetRange(0, Mathf.FloorToInt(genomes.Count * GA_Parameters.savePercentage/100)));
+        int storeNumber = Mathf.FloorToInt(genomes.Count * GA_Parameters.savePercentage / 100);
+        if (storeNumber == 0)
+            storeNumber = 1;
+        oldGenomes.Add(genomes.GetRange(0, storeNumber));
         genomes = newPopulation;
-        List<NeuralNetwork> newNetworks = new List<NeuralNetwork>();
+        newNetworks.Clear();
 
         for(int i = 0; i< genomes.Count; i++)
         {
@@ -206,7 +214,6 @@ public class GeneticAlgorithm
         }
 
         currentGeneration++;
-        Debug.Log(species.Count);
         return newNetworks;
     }
 

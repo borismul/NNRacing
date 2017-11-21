@@ -16,6 +16,15 @@ public class Genome
     int outputs;
     int species;
 
+    public MutParameters mutPar;
+
+    static List<NodeGene> offspringPerceptrons = new List<NodeGene>();
+    static List<ConnectionGene> offspringConnections = new List<ConnectionGene>();
+
+    static List<int> newPerceptrons = new List<int>();
+    static MutParameters newMutPar;
+    List<Perceptron> newPerceptronsObjects = new List<Perceptron>();
+
     public Genome()
     {
         network = null;
@@ -29,11 +38,13 @@ public class Genome
         perceptrons = new List<NodeGene>();
         connections = new List<ConnectionGene>();
 
+        mutPar = new MutParameters();
+
         //Random.InitState((int)System.DateTime.Now.Ticks);
 
     }
 
-    public Genome(int ID, int inputs, int outputs)
+    public Genome(int ID, int inputs, int outputs, MutParameters mutPar)
     {
         network = null;
         this.ID = ID;
@@ -67,9 +78,11 @@ public class Genome
                 connections.Add(new ConnectionGene(perceptrons[i].ID, perceptrons[inputs + j + 1].ID, true, inputs + outputs + 1 + NumGenes(), Random.Range(-1f, 1f)));
             }
         }
+
+        this.mutPar = mutPar;
     }
 
-    public Genome(int ID, int inputs, int hidden, int[] hiddenNodes, int outputs)
+    public Genome(int ID, int inputs, int hidden, int[] hiddenNodes, int outputs, MutParameters mutPar)
     {
         network = null;
         this.ID = ID;
@@ -115,6 +128,7 @@ public class Genome
         {
             int numInCurLayer = 0;
             int numInNextLayer = 0;
+
             if (layer == 0)
             {
                 numInCurLayer = inputs;
@@ -139,22 +153,23 @@ public class Genome
                 }
             }
             int startPercep = percepCount;
-            Debug.Log(count);
+
             for (int j = 0; j < numInCurLayer; j++)
             {
                 for (int z = 0; z < numInNextLayer; z++)
                 {
                     int connec = startPercep + numInCurLayer + z;
-                    int k = NumGenes();
                     connections.Add(new ConnectionGene(perceptrons[percepCount].ID, perceptrons[connec].ID, true, count + NumGenes(), Random.Range(-1f, 1f))); 
                 }
                 percepCount++;
 
             }
         }
+
+        this.mutPar = mutPar;
     }
 
-    public Genome(int ID, List<NodeGene> perceptrons, List<ConnectionGene> connections, int inputs, int outputs)
+    public Genome(int ID, List<NodeGene> perceptrons, List<ConnectionGene> connections, int inputs, int outputs, MutParameters mutPar)
     {
         network = null;
         this.connections = connections;
@@ -164,6 +179,8 @@ public class Genome
         adjustedFitness = 0;
         this.inputs = inputs;
         this.outputs = outputs;
+
+        this.mutPar = mutPar;
 
     }
 
@@ -189,6 +206,9 @@ public class Genome
         adjustedFitness = genome.adjustedFitness;
         amountToSpawn = genome.amountToSpawn;
         species = genome.species;
+
+        mutPar = genome.mutPar;
+
     }
 
     public void InitializeWeights()
@@ -202,26 +222,43 @@ public class Genome
     // Unit Tested
     public NeuralNetwork CreateNetwork()
     {
-        List<Perceptron> perceptrons = new List<Perceptron>();
 
+        newPerceptronsObjects.Clear();
         for(int i = 0; i < this.perceptrons.Count; i++)
         {
-            Perceptron perceptron = new Perceptron(this.perceptrons[i].type,
-                                                    this.perceptrons[i].ID,
-                                                    this.perceptrons[i].splitValues,
-                                                    this.perceptrons[i].actResponse);
-            perceptrons.Add(perceptron);
+            if (newPerceptrons.Count <= i)
+            {
+                Perceptron perceptron = new Perceptron(this.perceptrons[i].type,
+                                                        this.perceptrons[i].ID,
+                                                        this.perceptrons[i].splitValues,
+                                                        this.perceptrons[i].actResponse);
+                newPerceptronsObjects.Add(perceptron);
+            }
+            else
+            {
+                Perceptron perceptron = new Perceptron(this.perceptrons[i].type,
+                                                        this.perceptrons[i].ID,
+                                                        this.perceptrons[i].splitValues,
+                                                        this.perceptrons[i].actResponse);
+                newPerceptronsObjects.Add(perceptron);
+
+            }
         }
 
         for (int i = 0; i < connections.Count; i++)
         {
             if (connections[i].enabled)
             {
-                int index = GetElementPos(connections[i].from);
-                Perceptron from = perceptrons[index];
+                Perceptron from = null;
+                Perceptron to = null;
+                int index;
+
+                index = GetElementPos(connections[i].from);
+                from = newPerceptronsObjects[index];
 
                 index = GetElementPos(connections[i].to);
-                Perceptron to = perceptrons[index];
+                to = newPerceptronsObjects[index];
+
 
                 Link connection = new Link( connections[i].weight,
                                             from,
@@ -233,7 +270,7 @@ public class Genome
             }
         }
 
-        network = new NeuralNetwork(perceptrons);
+        network = new NeuralNetwork(ref newPerceptronsObjects, inputs);
         return network;
     }
 
@@ -466,7 +503,7 @@ public class Genome
     public void MutateWeights(float mutationRate , float newWeightProbability, float maxPerturbation)
     {
         for (int i = 0; i < connections.Count; i++) {
-            if (Random.Range(0f, 1f) < mutationRate)
+            if (Random.Range(0f, 1f) < mutationRate / connections.Count * 150)
             {
                 if (Random.Range(0f, 1f) < newWeightProbability)
                     connections[i].weight = Random.Range(-1f, 1f);
@@ -480,7 +517,7 @@ public class Genome
     {
         for(int i = 0; i < perceptrons.Count; i++)
         {
-            if (Random.Range(0f, 1f) < mutationRate)
+            if (Random.Range(0f, 1f) < mutationRate / perceptrons.Count * 25)
                 perceptrons[i].actResponse += Random.Range(-1f, 1f) * maxPerturbation;
         }
     }
@@ -563,7 +600,7 @@ public class Genome
         List<NodeGene> offspringPerceptrons = new List<NodeGene>();
         List<ConnectionGene> offspringConnections = new List<ConnectionGene>();
 
-        List<int> perceptrons = new List<int>();
+        List<int> newPerceptrons = new List<int>();
 
         int curMum = 0;
         int curDad = 0;
@@ -624,18 +661,20 @@ public class Genome
                     offspringConnections.Add(selectedGene);
                 }
             }
-            AddPercepID(selectedGene.from, ref perceptrons);
-            AddPercepID(selectedGene.to, ref perceptrons);
+            AddPercepID(selectedGene.from, ref newPerceptrons);
+            AddPercepID(selectedGene.to, ref newPerceptrons);
 
         }
 
-        perceptrons.Sort();
+        newPerceptrons.Sort();
 
-        for (int i = 0; i < perceptrons.Count; i++)
-            offspringPerceptrons.Add(ga.innovations.CreateNeuronFromID(perceptrons[i]));
+        for (int i = 0; i < newPerceptrons.Count; i++)
+            offspringPerceptrons.Add(ga.innovations.CreateNeuronFromID(newPerceptrons[i]));
+
+        MutParameters mutPar = new MutParameters(mum, dad);
 
 
-        Genome offspring = new Genome(ga.nextGenomeID, offspringPerceptrons, offspringConnections, mum.inputs, mum.outputs);
+        Genome offspring = new Genome(ga.nextGenomeID, offspringPerceptrons, offspringConnections, mum.inputs, mum.outputs, mutPar);
         ga.nextGenomeID++;
 
         return offspring;
@@ -767,6 +806,170 @@ public class Genome
     public List<NodeGene> GetPerceptronGenes()
     {
         return perceptrons;
+    }
+
+    [System.Serializable]
+    public class MutParameters
+    {
+        public float addPercepProb;
+        public float addLinkProb;
+        public float recurAddProb;
+        public float weightMutRate;
+        public float maxWeightPerturbation;
+        public float weightRepProb;
+        public float activationMutationChance;
+        public float maxActivationPerturbation;
+
+        public MutParameters()
+        {
+            addPercepProb = GA_Parameters.chanceAddPerceptron;
+            addLinkProb = GA_Parameters.chanceToAddLink;
+            recurAddProb = GA_Parameters.chanceRecurrentLink;
+            weightMutRate = GA_Parameters.weightMutationRate;
+            maxWeightPerturbation = GA_Parameters.maxWeightPerturbation;
+            weightRepProb = GA_Parameters.weightReplaceProb;
+            activationMutationChance = GA_Parameters.activationMutationChance;
+            maxActivationPerturbation = GA_Parameters.maxActivationPerturbation;
+    }
+
+        public MutParameters(Genome mum, Genome dad)
+        {
+            
+            float crossoverRate;
+
+            if (Random.Range(0f, 1f) < GA_Parameters.mutParMutRate)
+            {
+                addPercepProb = Random.Range(0f, 1f);
+
+                if (addPercepProb > 1f)
+                    addPercepProb = 1f;
+                else if (addPercepProb < 0f)
+                    addPercepProb = 0f;
+            }
+            else
+            {
+                crossoverRate = Random.Range(0f, 1f);
+
+                if (crossoverRate < 0.5f)
+                    addPercepProb = mum.mutPar.addPercepProb;
+                else
+                    addPercepProb = dad.mutPar.addPercepProb;
+            }
+            if (Random.Range(0f, 1f) < GA_Parameters.mutParMutRate)
+            {
+                addLinkProb = Random.Range(0f, 1f);
+                if (addLinkProb > 1f)
+                    addLinkProb = 1f;
+                else if (addLinkProb < 0f)
+                    addLinkProb = 0f;
+            }
+            else
+            {
+                crossoverRate = Random.Range(0f, 1f);
+                if (crossoverRate < 0.5f)
+                    addLinkProb = mum.mutPar.addLinkProb;
+                else
+                    addLinkProb = dad.mutPar.addLinkProb;
+            }
+            if (Random.Range(0f, 1f) < GA_Parameters.mutParMutRate)
+            {
+                recurAddProb = Random.Range(0f, 1f);
+                if (recurAddProb > 1f)
+                    recurAddProb = 1f;
+                else if (recurAddProb < 0f)
+                    recurAddProb = 0f;
+            }
+            else
+            {
+                crossoverRate = Random.Range(0f, 1f);
+                if (crossoverRate < 0.5f)
+                    recurAddProb = mum.mutPar.recurAddProb;
+                else
+                    recurAddProb = dad.mutPar.recurAddProb;
+            }
+            if (Random.Range(0f, 1f) < GA_Parameters.mutParMutRate)
+            {
+                weightMutRate = Random.Range(0f, 1f);
+                if (weightMutRate > 1f)
+                    weightMutRate = 1f;
+                else if (weightMutRate < 0f)
+                    weightMutRate = 0f;
+            }
+            else
+            {
+                crossoverRate = Random.Range(0f, 1f);
+                if (crossoverRate < 0.5f)
+                    weightMutRate = mum.mutPar.weightMutRate;
+                else
+                    weightMutRate = dad.mutPar.weightMutRate;
+            }
+            if (Random.Range(0f, 1f) < GA_Parameters.mutParMutRate)
+            {
+                maxWeightPerturbation = Random.Range(0f, 1f);
+                if (maxWeightPerturbation > 1f)
+                    maxWeightPerturbation = 1f;
+                else if (maxWeightPerturbation < 0f)
+                    maxWeightPerturbation = 0f;
+            }
+            else
+            {
+                crossoverRate = Random.Range(0f, 1f);
+                if (crossoverRate < 0.5f)
+                    maxWeightPerturbation = mum.mutPar.maxWeightPerturbation;
+                else
+                    maxWeightPerturbation = dad.mutPar.maxWeightPerturbation;
+            }
+            if (Random.Range(0f, 1f) < GA_Parameters.mutParMutRate)
+            {
+                weightRepProb = Random.Range(0f, 1f);
+                if (weightRepProb > 1f)
+                    weightRepProb = 1f;
+                else if (weightRepProb < 0f)
+                    weightRepProb = 0f;
+            }
+            else
+            {
+                crossoverRate = Random.Range(0f, 1f);
+                if (crossoverRate < 0.5f)
+                    weightRepProb = mum.mutPar.weightRepProb;
+                else
+                    weightRepProb = dad.mutPar.weightRepProb;
+            }
+            if (Random.Range(0f, 1f) < GA_Parameters.mutParMutRate)
+            {
+                maxActivationPerturbation = Random.Range(0f, 1f);
+                if (maxActivationPerturbation > 1f)
+                    maxActivationPerturbation = 1f;
+                else if (maxActivationPerturbation < 0f)
+                    maxActivationPerturbation = 0f;
+            }
+            else
+            {
+                crossoverRate = Random.Range(0f, 1f);
+                if (crossoverRate < 0.5f)
+                    maxActivationPerturbation = mum.mutPar.maxActivationPerturbation;
+                else
+                    maxActivationPerturbation = dad.mutPar.maxActivationPerturbation;
+            }
+            if (Random.Range(0f, 1f) < GA_Parameters.mutParMutRate)
+            {
+                activationMutationChance = Random.Range(0f, 1f);
+                if (activationMutationChance > 1f)
+                    activationMutationChance = 1f;
+                else if (activationMutationChance < 0f)
+                    activationMutationChance = 0f;
+            }
+            else
+            {
+                crossoverRate = Random.Range(0f, 1f);
+                if (crossoverRate < 0.5f)
+                    activationMutationChance = mum.mutPar.activationMutationChance;
+                else
+                    activationMutationChance = dad.mutPar.activationMutationChance;
+            }
+
+        }
+
     }
 
     // Save and Load can be implemented

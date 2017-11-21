@@ -9,16 +9,27 @@ public class NeuralNetwork
     List<GameObject> visualizeObjects = new List<GameObject>();
     List<Text> texts = new List<Text>();
 
-    public NeuralNetwork(List<Perceptron> perceptrons)
+    List<float> output = new List<float>();
+    int perceptron;
+    Perceptron curPerceptron;
+    float sum;
+    Link currentLink;
+    float weight;
+    float neuronOutput;
+    public int inputs;
+    List<Perceptron> outPerceptrons = new List<Perceptron>();
+
+    public NeuralNetwork(ref List<Perceptron> perceptrons, int inputs)
     {
         this.perceptrons = perceptrons;
+        this.inputs = inputs;
     }
 
     public List<float> Update(List<float> inputs)
     {
-        List<float> output = new List<float>();
-
-        int perceptron = 0;
+        output.Clear();
+        outPerceptrons.Clear();
+        perceptron = 0;
         while(perceptrons[perceptron].type == NodeType.Sensor)
         {
             perceptrons[perceptron].output = inputs[perceptron];
@@ -27,36 +38,39 @@ public class NeuralNetwork
 
         perceptrons[perceptron].output = 1;
         perceptron++;
-
+        
         while (perceptron < perceptrons.Count)
         {
-            Perceptron curPerceptron = perceptrons[perceptron];
+            curPerceptron = perceptrons[perceptron];
 
-            float sum = 0;
+            sum = 0;
             curPerceptron.SumActivation = 0;
 
             for (int j = 0; j < curPerceptron.inLinks.Count; j++)
             {
-                Link currentLink = curPerceptron.inLinks[j];
+                currentLink = curPerceptron.inLinks[j];
 
-                float weight = currentLink.weight;
+                weight = currentLink.weight;
 
-                float neuronOutput = currentLink.from.output;
+                neuronOutput = currentLink.from.output;
 
                 sum += weight * neuronOutput;
                 curPerceptron.SumActivation += weight * neuronOutput;
             }
 
-            curPerceptron.lastOutput = curPerceptron.output;
-            curPerceptron.output = ReLu(curPerceptron.SumActivation, curPerceptron.activationResponse);
-
-            if(curPerceptron.type == NodeType.Output)
+            if (curPerceptron.type != NodeType.Output)
             {
-                output.Add(curPerceptron.output);
+                curPerceptron.lastOutput = curPerceptron.output;
+                curPerceptron.output = ReLu(curPerceptron.SumActivation, curPerceptron.activationResponse);
+            }
+            else
+            {
+                outPerceptrons.Add(curPerceptron);
             }
 
             perceptron++;
         }
+        SoftMax(outPerceptrons);
         return output;
     }
 
@@ -81,6 +95,35 @@ public class NeuralNetwork
             return (input - response);
     }
 
+    void SoftMax(List<Perceptron> outputsPerceptrons)
+    {
+        float outSum = 0;
+        for (int i = 0; i < 2; i++)
+        {
+            outSum += Mathf.Exp(outputsPerceptrons[i].SumActivation - outputsPerceptrons[i].activationResponse);
+        }
+
+        for (int i = 0; i < 2; i++)
+        {
+            outputsPerceptrons[i].output = Mathf.Exp(outputsPerceptrons[i].SumActivation - outputsPerceptrons[i].activationResponse) / outSum;
+            output.Add(outputsPerceptrons[i].output);
+        }
+        outSum = 0;
+
+        for (int i = 2; i < 4; i++)
+        {
+            outSum += Mathf.Exp(outputsPerceptrons[i].SumActivation - outputsPerceptrons[i].activationResponse);
+
+        }
+
+        for (int i = 2; i < 4; i++)
+        {
+            outputsPerceptrons[i].output = Mathf.Exp(outputsPerceptrons[i].SumActivation - outputsPerceptrons[i].activationResponse) / outSum;
+            output.Add(outputsPerceptrons[i].output);
+        }
+
+    }
+
     public void Reset()
     {
         for(int i = 0; i < perceptrons.Count; i++)
@@ -88,6 +131,8 @@ public class NeuralNetwork
             perceptrons[i].output = 0;
         }
     }
+
+    
 
     // Unit tested
     public void VisualizeNetwork(RectTransform panel, GameObject perceptronPrefab, GameObject linkPrefab, GameObject loopPrefab, bool play)
@@ -233,6 +278,24 @@ public class Perceptron
 
         inLinks = new List<Link>();
         outLinks = new List<Link>();
+    }
+
+    public Perceptron SetPerceptron(NodeGene perceptron)
+    {
+        this.type = perceptron.type;
+        this.ID = perceptron.ID;
+        this.splitValues = perceptron.splitValues;
+        this.activationResponse = perceptron.actResponse;
+
+        SumActivation = 0;
+        output = 0;
+        lastOutput = 0;
+        pos = Vector2.zero;
+
+        inLinks.Clear();
+        outLinks.Clear();
+
+        return this;
     }
 
 

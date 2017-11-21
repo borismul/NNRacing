@@ -59,6 +59,7 @@ public class SaveableObjects : MonoBehaviour {
         SaveableGenes genes;
         int inputs;
         int outputs;
+        Genome.MutParameters mutPar; 
 
         public SaveableNeuralNetwork(string name, Genome genome)
         {
@@ -66,6 +67,7 @@ public class SaveableObjects : MonoBehaviour {
             genes = new SaveableGenes(genome);
             inputs = genome.NumInputs();
             outputs = genome.NumOutPuts();
+            mutPar = genome.mutPar;
         }
 
         public Genome GetGenome()
@@ -83,7 +85,7 @@ public class SaveableObjects : MonoBehaviour {
                 connections.Add(new ConnectionGene(genes.from[i], genes.to[i], genes.enabled[i], genes.innovNum[i], genes.weight[i], genes.ConnecRecurrent[i]));
             }
 
-            Genome genome = new Genome(0, nodes, connections, inputs, outputs);
+            Genome genome = new Genome(0, nodes, connections, inputs, outputs, mutPar);
 
             return genome;
         }

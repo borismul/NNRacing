@@ -17,7 +17,7 @@ public class TestScript : MonoBehaviour
     // Use this for initialization
     void Start()
     {
-        genome = new Genome(0, 8, 4);
+        genome = new Genome(0, 8, 4, new Genome.MutParameters());
         network = genome.CreateNetwork();
 
         network.VisualizeNetwork(panel.GetComponent<RectTransform>(), perceptron, link, loopLink, false);

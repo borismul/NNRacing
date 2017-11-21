@@ -16,7 +16,6 @@ public class UIController : MonoBehaviour
     // Textboxes
     public Text maximumFitnessText;
     public Text generationText;
-    public Text individualText;
     public Text timeText;
     public Text AIcurrentFitness;
     public Text yourCurrentFitness;
@@ -40,8 +39,9 @@ public class UIController : MonoBehaviour
     int numGridLines = 10;
     public Text gridLabel;
 
-
-    List<GameObject> lines = new List<GameObject>();
+    List<GameObject> maxLines = new List<GameObject>();
+    List<GameObject> avgLines = new List<GameObject>();
+    List<Text> axisLabels = new List<Text>();
 
     int currentI = -1;
     // Menu objects
@@ -56,7 +56,7 @@ public class UIController : MonoBehaviour
     public Button quitPlayButton;
     public Button challengeButton;
     public Button quitButton;
-
+    public Image backImage;
     public GameObject savePanel;
     public InputField saveInput;
     public Button saveButton;
@@ -66,6 +66,10 @@ public class UIController : MonoBehaviour
     public Button resumeButton;
     public Button stopButton;
     public Button mainMenu;
+    public Button liveViewButton;
+
+    public GameObject liveViewCanvas;
+    public InputField maxSpeedInput;
 
     public Text pausingText;
 
@@ -93,8 +97,9 @@ public class UIController : MonoBehaviour
     public bool runningPlay;
 
     public Camera UICamera;
+    public Camera liveViewCamera;
     public GameObject particles;
-
+    ParticleSystem[] particlessys;
     void Awake()
     {
         instance = this;
@@ -105,6 +110,7 @@ public class UIController : MonoBehaviour
 
     void Start()
     {
+        particlessys = particles.GetComponentsInChildren<ParticleSystem>();
         particles.SetActive(true);
         SetActiveParticles(true);
         pauseButton.onClick.AddListener(_Pause);
@@ -120,24 +126,24 @@ public class UIController : MonoBehaviour
         cancelSave.onClick.AddListener(SaveQuit);
         saveNetworkButton.onClick.AddListener(SavePanel);
         mainMenu.onClick.AddListener(MainMenu);
-
+        liveViewButton.onClick.AddListener(LiveViewButton);
+        maxSpeedInput.onEndEdit.AddListener(UpdateMaxSpeed);
         nnVisualizeStart = networkVisualize.GetComponent<RectTransform>().anchoredPosition;
         networkStart = networkPanel.GetComponent<RectTransform>().anchoredPosition;
     }
 
-    public void UpdateUI(float maxFitness, int generation, int individual, float fitness, float time)
+    public void UpdateUI(float maxFitness, int generation, float fitness, float time)
     {
         generationText.text = "Generation: " + (generation).ToString();
-        individualText.text = "Individual: " + (individual).ToString();
         maximumFitnessText.text = "Maximum fitness: " + maxFitness.ToString("F2");
         //timeText.text = "Time: " + time.ToString("F2");
         //fitnessText.text = "Current Fitness: " + fitness.ToString("F2");
 
     }
 
-    public void UpdateUI(float maxFitness, float avgFitness, int generation, int individual, float fitness, float time, bool genFinish)
+    public void UpdateUI(float maxFitness, float avgFitness, int generation, float fitness, float time, bool genFinish)
     {
-        UpdateUI(maxFitness, generation, individual, fitness, time);
+        UpdateUI(maxFitness, generation, fitness, time);
         UpdateGraph(maxFitness, avgFitness, genFinish);
     }
 
@@ -164,7 +170,6 @@ public class UIController : MonoBehaviour
         float plotMaxX = Mathf.Ceil((float)plotDataAvg.Count / 10) * 10;
         float plotMaxY = Mathf.Ceil((float)maxFitness / 100) * 100;
 
-        DestroyPlotLines();
         PlotAxis(plotMaxX, plotMaxY);
         PlotMaxAvg(plotMaxX, plotMaxY);
 
@@ -178,19 +183,33 @@ public class UIController : MonoBehaviour
 
         for (int i = 0; i < numGridLines; i++)
         {
-            Text temp = (Text)Instantiate(gridLabel, plotArea.transform, false);
+            Text temp;
+            if (axisLabels.Count <= 2*i)
+            {
+                temp = (Text)Instantiate(gridLabel, plotArea.transform, false);
+                axisLabels.Add(temp);
+            }
+            else
+            {
+                temp = axisLabels[2*i];
+            }
+
             RectTransform line = temp.GetComponent<RectTransform>();
             line.anchoredPosition = new Vector3(1.5f * margin, (i + 1) * yDiff + 1.5f * margin) - new Vector3(line.rect.width, line.rect.height / 2);
             temp.text = ((i + 1) * plotMaxY / 10).ToString();
 
-            lines.Add(line.gameObject);
+            if (axisLabels.Count <= 2*i + 1)
+            {
+                temp = (Text)Instantiate(gridLabel, plotArea.transform, false);
+                axisLabels.Add(temp);
+            }
+            else
+                temp = axisLabels[2 * i + 1];
 
-            temp = (Text)Instantiate(gridLabel, plotArea.transform, false);
             line = temp.GetComponent<RectTransform>();
             line.anchoredPosition = new Vector3((i + 1) * xDiff + 1.5f * margin, 1.5f * margin) - new Vector3(line.rect.width / 2, line.rect.height);
             temp.text = (((i + 1) * plotMaxX / 10) + 1).ToString();
 
-            lines.Add(line.gameObject);
         }
     }
 
@@ -208,12 +227,15 @@ public class UIController : MonoBehaviour
             point1 = new Vector2(i * xDiff + 1.5f * margin, plotDataMax[i] * yDiff + 1.5f * margin);
             point2 = new Vector2((i + 1) * xDiff + 1.5f * margin, plotDataMax[i + 1] * yDiff + 1.5f * margin);
 
-            PlotLinePiece(point1, point2, maxLine);
+            PlotLinePiece(point1, point2, maxLine, i, true);
+        }
 
+        for (int i = 0; i < plotDataAvg.Count - 1; i++)
+        {
             point1 = new Vector2(i * xDiff + 1.5f * margin, plotDataAvg[i] * yDiff + 1.5f * margin);
             point2 = new Vector2((i + 1) * xDiff + 1.5f * margin, plotDataAvg[i + 1] * yDiff + 1.5f * margin);
 
-            PlotLinePiece(point1, point2, avgLine);
+            PlotLinePiece(point1, point2, avgLine,i , false);
         }
 
         //point1 = new Vector2((plotDataMax.Count - 1) * xDiff + 1.5f * margin, plotDataMax[plotDataMax.Count - 1] * yDiff + 1.5f * margin);
@@ -227,28 +249,89 @@ public class UIController : MonoBehaviour
         //PlotLinePiece(point1, point2, avgLine);
     }
 
-    void PlotLinePiece(Vector3 point1, Vector3 point2, GameObject linePrefab, float lineThickness = 3)
+    void PlotLinePiece(Vector3 point1, Vector3 point2, GameObject linePrefab, int i, bool max, float lineThickness = 3)
     {
         float lineWidth = (point1 - point2).magnitude;
         float lineRot = Mathf.Atan2(point2.y - point1.y, point2.x - point1.x);
 
-        GameObject temp = (GameObject)Instantiate(linePrefab, plotArea.transform);
+        GameObject temp = null;
+
+        if (max && maxLines.Count <= i)
+        {
+            temp = (GameObject)Instantiate(linePrefab, plotArea.transform);
+            maxLines.Add(temp);
+        }
+        else if (max && maxLines.Count > i)
+            temp = maxLines[i];
+
+        if (!max && avgLines.Count <= i)
+        {
+            temp = (GameObject)Instantiate(linePrefab, plotArea.transform);
+            avgLines.Add(temp);
+        }
+        else if(!max && avgLines.Count > i)
+        {
+            temp = avgLines[i];
+        }
+
         RectTransform line = temp.GetComponent<RectTransform>();
         line.sizeDelta = new Vector2(lineWidth, lineThickness);
         line.anchoredPosition = point1;
         line.rotation = Quaternion.Euler(0, 0, lineRot * Mathf.Rad2Deg);
         line.localScale = Vector3.one;
 
-        lines.Add(line.gameObject);
     }
 
-    void DestroyPlotLines()
+
+    void LiveViewButton()
     {
-        foreach (GameObject line in lines)
+        backImage.enabled = false;
+        liveViewCamera.enabled = true;
+        carTrainer.SetUpdateRate(1, true);
+        liveViewCanvas.SetActive(true);
+        liveViewButton.onClick.RemoveAllListeners();
+        liveViewButton.GetComponentInChildren<Text>().text = "Quit Live View";
+        liveViewButton.onClick.AddListener(QuitLiveView);
+        SetActiveParticles(false);
+        UpdateMaxSpeed(maxSpeedInput.text);
+
+    }
+
+    void QuitLiveView()
+    {
+        backImage.enabled = true;
+        liveViewCamera.enabled = false;
+        carTrainer.SetUpdateRate(1, false);
+        liveViewCanvas.SetActive(false);
+        liveViewButton.onClick.RemoveAllListeners();
+        liveViewButton.GetComponentInChildren<Text>().text = "View Live Training";
+
+        if (!carTrainer.isPaused)
+            SetActiveParticles(true);
+        
+
+        liveViewButton.onClick.AddListener(LiveViewButton);
+
+    }
+
+    void UpdateMaxSpeed(string maxSpeedstr)
+    {
+        float maxSpeed = float.Parse(maxSpeedstr);
+
+        if (maxSpeed <= .5)
         {
-            Destroy(line);
+            maxSpeedInput.text = .5f.ToString();
+            maxSpeed = .5f;
         }
-        lines.Clear();
+        else if (maxSpeed > 1000)
+        {
+            maxSpeedInput.text = 1000f.ToString();
+            maxSpeed = 1000;
+        }
+
+        carTrainer.SetUpdateRate(maxSpeed, true);
+
+        
     }
 
     void SavePanel()
@@ -360,6 +443,7 @@ public class UIController : MonoBehaviour
 
         pausingText.gameObject.SetActive(false);
         resumeButton.interactable = true;
+        liveViewButton.interactable = false;
         networks.SetActive(true);
         generationInput.text = (carTrainer.curGeneration).ToString();
         curGeneration = carTrainer.curGeneration;
@@ -374,18 +458,23 @@ public class UIController : MonoBehaviour
             nextGenerationInput.interactable = true;
 
         SetActiveParticles(false);
+
+        QuitLiveView();
     }
 
     void SetActiveParticles(bool isActive)
     {
-        ParticleSystem[] particlessys = particles.GetComponentsInChildren<ParticleSystem>();
-        for(int i = 0; i < particlessys.Length; i++)
+
+        for (int i = 0; i < particlessys.Length; i++)
         {
-            var em = particlessys[i].emission;
-            if(!isActive)
-                em.rateOverTime = 0;
+
+            if (isActive == false)
+                particlessys[i].gameObject.SetActive(false);
             else
-                em.rateOverTime = 3;
+            {
+                particlessys[i].gameObject.SetActive(true);
+            }
+
         }
     }
 
@@ -397,6 +486,7 @@ public class UIController : MonoBehaviour
         resumeButton.interactable = false;
         networkPanel.SetActive(false);
         multipleSelected.gameObject.SetActive(false);
+        liveViewButton.interactable = true;
 
         carTrainer.isPaused = false;
     }
@@ -476,7 +566,6 @@ public class UIController : MonoBehaviour
 
         mainPanel.GetComponent<CanvasGroup>().alpha = 0;
         networkPanel.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
-
         quitPlayButton.gameObject.SetActive(true);
 
         activeRoutines.Add(StartCoroutine(_Play(true)));
@@ -515,8 +604,8 @@ public class UIController : MonoBehaviour
         {
             Coroutine routine = carTrainer.StartCoroutine(carTrainer.CreateCars(networks, false, true, 0));
             activeRoutines.Add(routine);
-
-
+            carTrainer.carControllers[0].carFollowCamera.gameObject.SetActive(true);
+            CameraController.currentActiveMainCamera = carTrainer.carControllers[0].carFollowCamera;
 
         }
         runningPlay = true;
@@ -540,14 +629,12 @@ public class UIController : MonoBehaviour
             }
             activeNetworks[0].SetNetworkValues();
 
-
             float maxAIfitness = 0;
-
             for (int i = 0; i < carTrainer.carControllers.Count; i++)
             {
-                if (carTrainer.carControllers[i].GetNetwork() == null)
+                if (carTrainer.carControllers[i].GetNetwork() == null && carTrainer.carControllers[i].isActive)
                     yourCurrentFitness.text = "Your fitness: " + carTrainer.carControllers[i].GetFitnessTracker().GetFitness().ToString("F1");
-                else
+                else if(carTrainer.carControllers[i].isActive)
                 {
                     if (carTrainer.carControllers[i].GetFitnessTracker().GetFitness() > maxAIfitness)
                         maxAIfitness = carTrainer.carControllers[i].GetFitnessTracker().GetFitness();
@@ -584,6 +671,9 @@ public class UIController : MonoBehaviour
             NeuralNetwork maxNetwork = null;
             for (int i = 0; i < carTrainer.carControllers.Count; i++)
             {
+                if (!carTrainer.carControllers[i].isActive)
+                    continue;
+
                 if (carTrainer.carControllers[i].GetFitnessTracker().GetFitness() > maxFitness)
                 {
                     maxFitness = carTrainer.carControllers[i].GetFitnessTracker().GetFitness();
@@ -628,7 +718,6 @@ public class UIController : MonoBehaviour
 
         winLoseMenu.CancelAll();
 
-        carTrainer.SetUpdateRate(0);
     }
 
     void Quit()

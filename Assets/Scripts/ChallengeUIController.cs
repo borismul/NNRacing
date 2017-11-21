@@ -13,7 +13,6 @@ public class ChallengeUIController : MonoBehaviour {
 	
     void Leave()
     {
-        GA_Parameters.carUpdateRate = 0;
         SceneManager.LoadScene("MainScene");
     }
 
