@@ -25,6 +25,7 @@ public class MainMenuController : MonoBehaviour
 
     [Header("Track Selector Elements")]
     public GameObject trackSelectorMenu;
+    public GameObject trackPrefab;
     public Button selectorTrack;
     public Button trackSelectorBack;
 
@@ -90,8 +91,6 @@ public class MainMenuController : MonoBehaviour
 
     [Header("Link Elements")]
     public GameObject trainingCanvas;
-    public CarTrainer carTrainer;
-    public LevelBuilder builder;
     public LoadTrackManager loadTrackManager;
     public LoadNetworksManager loadNetworksManager;
     public UIController uiController;
@@ -141,7 +140,7 @@ public class MainMenuController : MonoBehaviour
 
     void TrackEditor()
     {
-        SceneManager.LoadScene("LevelEditor");
+        SceneManager.LoadScene(1);
     }
 
     void Quit()
@@ -158,10 +157,11 @@ public class MainMenuController : MonoBehaviour
 
     void SelectorTrack()
     {
+        TrackManager manager = Instantiate(trackPrefab).GetComponent<TrackManager>();
+        manager.trackName = loadTrackManager.selectedTrackName;
 
-        builder.LoadTrack(loadTrackManager.selectedTrackName);
         trainingCanvas.SetActive(true);
-        carTrainer.StartSim();
+        CarTrainer.instance.StartSim();
         transform.parent.gameObject.SetActive(false);
     }
 
@@ -193,8 +193,8 @@ public class MainMenuController : MonoBehaviour
         trainingCanvas.SetActive(false);
 
         trackSelectorMenu.SetActive(true);
-        uiController.activeNetworks.Clear();
-        uiController.activeNetworks.AddRange(loadNetworksManager.currentNetworks);
+        //uiController.activeNetworks.Clear();
+        //uiController.activeNetworks.AddRange(loadNetworksManager.currentNetworks);
         trackSelectorBack.onClick.RemoveAllListeners();
         trackSelectorBack.onClick.AddListener(SelectorBackToNetwork);
         selectorTrack.onClick.RemoveAllListeners();
@@ -220,7 +220,8 @@ public class MainMenuController : MonoBehaviour
             return;
 
         trainingCanvas.SetActive(true);
-        builder.LoadTrack(loadTrackManager.selectedTrackName);
+        TrackManager manager = Instantiate(trackPrefab).GetComponent<TrackManager>();
+        manager.trackName = loadTrackManager.selectedTrackName;
         StartCoroutine(_StartChallengeNetwork());
 
     }
@@ -228,7 +229,7 @@ public class MainMenuController : MonoBehaviour
     IEnumerator _StartChallengeNetwork()
     {
         yield return null;
-        uiController.Challenge();
+        //uiController.Challenge();
         challengeMenu.SetActive(true);
         transform.parent.gameObject.SetActive(false);
     }

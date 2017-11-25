@@ -1,10 +1,24 @@
 ﻿using UnityEngine;
-using System.Collections;
+using System.Collections.Generic;
+
 
 public class CameraController : MonoBehaviour
 {
 
+    public static CameraController instance;
+
+    public GameObject menuCamera;
+
     enum carFollowObject { thirdPerson, hood, top }
+
+    // List of cars that can be followed by the camera
+    List<CarController> followCars = new List<CarController>();
+
+    // Car that is being followed
+    CarController currentFollowCar;
+
+    // Integer that says which followcar is currently being followed
+    int currentFollowCarNum = 0;
 
     // Object that the camera can follow
     GameObject[] followObjects;
@@ -18,19 +32,20 @@ public class CameraController : MonoBehaviour
     public float hoodLerpSpeedTransform = 10f;
     public float hoodLerpSpeedRotation = 10f;
 
-    public static CameraController currentActiveMainCamera;
-
-    CarController car;
+    void Awake()
+    {
+        instance = this;
+    }
 
     void Update()
     {
         SetNextFollowObject();
+        SetNextFollowCar();
     }
 
-    // Update is called once per frame
     void LateUpdate()
     {
-        //UpdateTransform();
+        UpdateTransform();
     }
 
     void OnEnable()
@@ -46,7 +61,11 @@ public class CameraController : MonoBehaviour
     public void UpdateTransform()
     {
         if (followObjects == null)
+        {
+            gameObject.SetActive(false);
+            menuCamera.SetActive(true);
             return;
+        }
 
         if (Vector3.Distance(transform.position, followObjects[(int)followObjectIndex].transform.position) > 2)
         {
@@ -58,10 +77,10 @@ public class CameraController : MonoBehaviour
         if (followObjectIndex == carFollowObject.thirdPerson)
         {
             // Follow exactly the position
-            transform.position = Vector3.Lerp(transform.position, followObjects[(int)followObjectIndex].transform.position, (car.maxSpeed * 0.4f + Mathf.Sqrt(car.velocity.magnitude)) * 1f/GA_Parameters.fps);
+            transform.position = Vector3.Lerp(transform.position, followObjects[(int)followObjectIndex].transform.position, (currentFollowCar.maxSpeed * 0.4f + Mathf.Sqrt(currentFollowCar.velocity.magnitude)) * 1f / GA_Parameters.fps);
 
             // Lerp towards rotation to avoid stuttering
-            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, (car.turnSpeed * 0.1f) * 1f / GA_Parameters.fps);
+            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, (currentFollowCar.turnSpeed * 0.1f) * 1f / GA_Parameters.fps);
         }
 
         else if (followObjectIndex == carFollowObject.hood)
@@ -70,7 +89,7 @@ public class CameraController : MonoBehaviour
             transform.position = followObjects[(int)followObjectIndex].transform.position;
 
             // Lerp towards rotation to avoid stuttering
-            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, car.turnSpeed * 1f / GA_Parameters.fps);
+            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, currentFollowCar.turnSpeed * 1f / GA_Parameters.fps);
         }
 
         else
@@ -81,10 +100,18 @@ public class CameraController : MonoBehaviour
     }
 
     // Method that allows to set another car to follow
-    public void SetFollowCar(CarController carController)
+    public void SetFollowCars(List<CarController> carControllers)
     {
-        car = carController;
-        followObjects = carController.carFollowObjects;
+        gameObject.SetActive(true);
+        menuCamera.SetActive(false);
+
+        if (carControllers == null)
+            return;
+
+        followCars = carControllers;
+        currentFollowCarNum = 0;
+        currentFollowCar = carControllers[0];
+        followObjects = currentFollowCar.carFollowObjects;
     }
 
     // Method that checks if C is pressed and if so changes the current follow object to the next in the list
@@ -102,5 +129,18 @@ public class CameraController : MonoBehaviour
         transform.rotation = followObjects[(int)followObjectIndex].transform.rotation;
     }
 
+    // Method that check is V is pressed and if so changes the current car that is being followed
+    void SetNextFollowCar()
+    {
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            if (currentFollowCarNum + 1 < followCars.Count)
+                currentFollowCarNum++;
+            else
+                currentFollowCarNum = 0;
 
+            currentFollowCar = followCars[currentFollowCarNum];
+            followObjects = currentFollowCar.carFollowObjects;
+        }
+    }
 }

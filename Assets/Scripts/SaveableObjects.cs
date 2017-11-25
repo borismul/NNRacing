@@ -4,51 +4,78 @@ using UnityEngine;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
 
-public class SaveableObjects : MonoBehaviour {
+public class SaveableObjects {
 
     [System.Serializable]
-    public class SavedTrack
+    class SaveableTrack
     {
         public string name;
-        public float[] textureR;
-        public float[] textureG;
-        public float[] textureB;
-        public float[] textureA;
-
-        public int width;
-        public int height;
-
+        public byte[] texture;
         public SerializableVector3[] trackPoints;
+        public int texWidth;
+        public int texHeight;
 
-        public SavedTrack(string name, Texture2D texture, TrackPoints trackPoints)
+        public SaveableTrack(string name, Texture2D texture, List<TrackPoint> trackPoints)
         {
             this.name = name;
+            this.texture = texture.EncodeToPNG();
+            this.trackPoints = new SerializableVector3[trackPoints.Count];
+            texWidth = texture.width;
+            texHeight = texture.height;
 
-            textureR = new float[texture.width * texture.height];
-            textureG = new float[texture.width * texture.height];
-            textureB = new float[texture.width * texture.height];
-            textureA = new float[texture.width * texture.height];
-
-            for (int i = 0; i < texture.width; i++)
+            for (int i = 0; i < trackPoints.Count; i++)
             {
-                for (int j = 0; j < texture.height; j++)
-                {
-                    textureR[i * texture.height + j] = texture.GetPixel(i, j).r;
-                    textureG[i * texture.height + j] = texture.GetPixel(i, j).g;
-                    textureB[i * texture.height + j] = texture.GetPixel(i, j).b;
-                    textureA[i * texture.height + j] = texture.GetPixel(i, j).a;
-                }
+                this.trackPoints[i] = new SerializableVector3(trackPoints[i].position);
+            }
+        }
+    }
+
+
+    public static bool SaveTrack(Track track)
+    {
+        try
+        {
+            SaveableTrack saveableTrack = new SaveableTrack(track.trackName, track.texture, track.trackPoints);
+            BinaryFormatter bf = new BinaryFormatter();
+            Directory.CreateDirectory(Application.persistentDataPath + "/Tracks/");
+            FileStream file = File.Create(Application.persistentDataPath + "/Tracks/" + saveableTrack.name + ".trk");
+            bf.Serialize(file, saveableTrack);
+            file.Close();
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            Debug.Log(e); 
+            return false;
+        }
+
+    }
+
+    public static Track LoadTrack(string name)
+    {
+        try
+        {
+            BinaryFormatter bf = new BinaryFormatter();
+            FileStream file = File.Open(Application.persistentDataPath + "/Tracks/" + name + ".trk", FileMode.Open);
+            SaveableTrack saveableTrack = (SaveableTrack)bf.Deserialize(file);
+            file.Close();
+            Texture2D tex = new Texture2D(saveableTrack.texWidth, saveableTrack.texHeight, TextureFormat.ARGB32, false);
+            tex.LoadImage(saveableTrack.texture);
+            tex.Apply();
+            List<Vector3> trackpoints = new List<Vector3>();
+            for (int i = 0; i < saveableTrack.trackPoints.Length; i++)
+            {
+                trackpoints.Add(saveableTrack.trackPoints[i].GetVector3());
             }
 
-            width = texture.width;
-            height = texture.height;
+            Track track = new Track(saveableTrack.name, tex, trackpoints);
+            return track;
 
-            this.trackPoints = new SerializableVector3[trackPoints.transform.childCount];
-
-            for (int i = 0; i < trackPoints.transform.childCount; i++)
-            {
-                this.trackPoints[i] = new SerializableVector3(trackPoints.transform.GetChild(i).transform.position);
-            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.Log(e);
+            return null;
         }
     }
 

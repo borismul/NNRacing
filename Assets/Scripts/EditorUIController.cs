@@ -27,7 +27,7 @@ public class EditorUIController : MonoBehaviour
 
     public Text saveTitleText;
 
-    public LevelBuilder builder;
+
     public LoadTrackManager loadTrackManager;
     TexturePainter painter;
 	// Use this for initialization
@@ -95,7 +95,7 @@ public class EditorUIController : MonoBehaviour
         string name = saveNameInput.text;
         try
         {
-            if (builder.SaveTrack(name))
+            if (TrackManager.trackManager.SaveTrack(name))
                 SaveBack();
             else
             {
@@ -104,8 +104,9 @@ public class EditorUIController : MonoBehaviour
             }
 
         }
-        catch (System.Exception)
+        catch (System.Exception e)
         {
+            print(e);
             saveTitleText.color = Color.red;
             saveTitleText.text = "Enter a correct name!";
         }
@@ -126,9 +127,9 @@ public class EditorUIController : MonoBehaviour
         Texture2D tex;
         if (loadTrackManager.selectedTrackName != "")
         {
-            tex = builder.LoadTrackMenu(loadTrackManager.selectedTrackName);
+            tex = SaveableObjects.LoadTrack(loadTrackManager.selectedTrackName).texture;
             tex.filterMode = FilterMode.Point;
-            builder.GetComponent<Renderer>().material.SetTexture("_MainTex", (Texture)tex);
+            TrackManager.trackManager.GetComponent<Renderer>().material.SetTexture("_MainTex", (Texture)tex);
         }
         else
             loadTrackManager.Error("First select a track!");

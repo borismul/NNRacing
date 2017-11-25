@@ -13,7 +13,7 @@ public class TexturePainter : MonoBehaviour {
     public int brushSize = 5;
     public static TexturePainter instance;
 
-    GameObject trackpoints;
+    public List<Vector3> trackpoints = new List<Vector3>();
 
     Ray lastRay;
 
@@ -34,7 +34,7 @@ public class TexturePainter : MonoBehaviour {
     {
         lastRay = new Ray();
         ren = GetComponent<Renderer>();
-        texture = new Texture2D(textureWidth, textureHeight, TextureFormat.ARGB32, true);
+        texture = new Texture2D(textureWidth, textureHeight, TextureFormat.ARGB32, false);
 
         // set the pixel values
         for (int i = 0; i < textureWidth; i++)
@@ -48,11 +48,7 @@ public class TexturePainter : MonoBehaviour {
         texture.filterMode = FilterMode.Point;
         ren.material.mainTexture = texture;
 
-        if (trackpoints != null)
-            Destroy(trackpoints);
-
-        trackpoints = new GameObject("TrackPoints");
-        trackpoints.AddComponent<TrackPoints>();
+        trackpoints.Clear();
 
 
     }
@@ -130,7 +126,7 @@ public class TexturePainter : MonoBehaviour {
                 lastRay = rayNow;
                 if (tex.GetPixel(Mathf.FloorToInt(pixel.x), Mathf.FloorToInt(pixel.y)) != Color.white)
                 {
-                    CreateTrackPoint(hit.point);
+                    trackpoints.Add(hit.point*30);
                     tex.SetPixel(Mathf.FloorToInt(pixel.x), Mathf.FloorToInt(pixel.y), Color.white);
 
                 }
@@ -140,10 +136,5 @@ public class TexturePainter : MonoBehaviour {
 
     }
 
-    void CreateTrackPoint(Vector3 position)
-    {
-        GameObject trackpoint = new GameObject("TrackPoint");
-        trackpoint.transform.parent = trackpoints.transform;
-        trackpoint.transform.position = position;
-    }
+
 }

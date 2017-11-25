@@ -93,7 +93,6 @@ public class GeneticAlgorithm
             NeuralNetwork network = genomes[i].CreateNetwork();
             networks.Add(network);
         }
-
         return networks;
     }
 

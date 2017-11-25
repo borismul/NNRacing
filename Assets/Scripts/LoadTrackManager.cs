@@ -21,7 +21,6 @@ public class LoadTrackManager : MonoBehaviour {
 
     public List<Button> currentButtons = new List<Button>();
 
-
 	// Use this for initialization
 	void OnEnable ()
     {
@@ -65,7 +64,7 @@ public class LoadTrackManager : MonoBehaviour {
 
     void SetButtonAction(string name)
     {
-        Texture2D tex = builder.LoadTrackMenu(name);
+        Texture2D tex = SaveableObjects.LoadTrack(name).texture;
         trackImage.enabled = true;
         trackImage.sprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
         selectedTrackName = name;

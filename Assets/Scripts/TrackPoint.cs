@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-using System.Collections;
+using System.Collections.Generic;
 
 public class TrackPoint
 {
@@ -16,13 +16,29 @@ public class TrackPoint
     public void SetDone()
     {
         isDone = true;
-        //GetComponent<MeshRenderer>().material.color = Color.blue;
     }
 
     public void Reset()
     {
         isDone = false;
-        //GetComponent<MeshRenderer>().material.color = Color.red;
+    }
+
+    public static List<TrackPoint> CreateTrackPointList(List<Vector3> trackPoints)
+    {
+        List<TrackPoint> realTrackPoints = new List<TrackPoint>();
+
+        for (int i = 0; i < trackPoints.Count; i++)
+        {
+            if (i != 0)
+            {
+                float distance = Vector3.Distance(trackPoints[i - 1], trackPoints[i]);
+                realTrackPoints.Add(new TrackPoint(distance, trackPoints[i]));
+            }
+            else
+                realTrackPoints.Add(new TrackPoint(0, trackPoints[0]));
+        }
+
+        return realTrackPoints;
     }
 
 }

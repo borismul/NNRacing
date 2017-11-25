@@ -12,10 +12,10 @@ public class CarController : MonoBehaviour
 
     // Mask that is used to detect collisions with walls
     public LayerMask mask;
-
+    public LayerMask groundMask;
     // Object that the camera can follow
     public GameObject[] carFollowObjects;
-
+    public GameObject[] wheels;
     public GameObject carFollowCameraPrefab;
     public GameObject trackSphere;
 
@@ -38,10 +38,11 @@ public class CarController : MonoBehaviour
 
     // Fitness and track managers of the car
     FitnessTracker fitnessTracker;
-    TrackManager trackManager;
+    public CarTrackController trackManager;
 
-    // The neural network that controls the car
-    NeuralNetwork network;
+    // Player that controls the car
+    public HumanPlayer humanPlayer;
+    public AIPlayer aIPlayer;
 
     public bool isActive;
 
@@ -60,11 +61,7 @@ public class CarController : MonoBehaviour
         // Get used components
         col = GetComponent<BoxCollider>();
         fitnessTracker = GetComponent<FitnessTracker>();
-        trackManager = GetComponent<TrackManager>();
-
-        carFollowCamera = Instantiate(carFollowCameraPrefab).GetComponent<CameraController>();
-        carFollowCamera.SetFollowCar(this);
-        cameras.Add(carFollowCamera);
+        trackManager = GetComponent<CarTrackController>();
     }
 
     void Start()
@@ -87,36 +84,22 @@ public class CarController : MonoBehaviour
         trailren.gameObject.GetComponent<Renderer>().material.color = col;
     }
 
-    void ManualController()
-    {
-        // If this has a network, the car is not manually controller so return
-        if (network != null)
-            return;
-
-        // Get the keyboard inputs
-        GetInputs();
-
-        // Update the car. If something went wrong stop simulation
-        if (!UpdateCar(Time.deltaTime, GA_Parameters.stopAtCrash))
-        {
-            trackManager.SelectNextTrack();
-        }
-    }
-
+    // The inputs from the player
     void GetInputs()
     {
         // accelerate
-        acc = Input.GetAxisRaw("Vertical");
-
-        if (acc > 0)
+        if (Input.GetKey(humanPlayer.controls[0]))
             acc = accSpeed;
-        else if (acc < 0.05f && acc > -0.05f)
-            acc = 0;
-        else
-            acc = -breakSpeed;
 
-        // turn
-        turn = Input.GetAxisRaw("Horizontal") * turnSpeed;
+        if (Input.GetKey(humanPlayer.controls[1]))
+            acc = breakSpeed;
+
+        if (Input.GetKey(humanPlayer.controls[2]))
+            turn = -turnSpeed;
+
+        if (Input.GetKey(humanPlayer.controls[3]))
+            turn = turnSpeed;
+
     }
 
     // Method that updates the car postition and fitness. If a something happens that should stop the simulation,
@@ -124,17 +107,17 @@ public class CarController : MonoBehaviour
     public bool UpdateCar(float deltaTime, bool stopAtCrash)
     {
         // If the current neural network is misformed stop simulation
-        if (network != null && !CalculateNetworkOutput())
+        if (aIPlayer != null && !CalculateNetworkOutput())
             return false;
 
-        if (network == null)
+        if (aIPlayer == null)
             GetInputs();
-        
+
         // Move the car
         Move(deltaTime);
 
         // If the car has a collision
-        if (HasCollision() || ((velocity.x == 0 && velocity.y == 0) && network != null))
+        if (OnGrass() == 4 || ((velocity.x == 0 && velocity.y == 0) && aIPlayer != null))
         {
             // If the car has to stop at a crash stop the simulation
             if (stopAtCrash)
@@ -149,11 +132,10 @@ public class CarController : MonoBehaviour
             Reset();
             fitnessTracker.AddCrash();
         }
-        
+
         // Update the fitness tracker, checks if the number of laps has been completed and if so, stops the simulation
         if (!fitnessTracker.UpdateFitness(deltaTime, stopAtCrash))
             return false;
-
         // If everything went well let simulation continue
         return true;
     }
@@ -162,7 +144,7 @@ public class CarController : MonoBehaviour
     void Move(float deltaTime)
     {
         // Determine an accelation vector
-        accVector = acc * transform.forward - (velocity.magnitude * velocity.magnitude) * transform.forward * (accSpeed - 3) / (maxSpeed * maxSpeed) - 3 * transform.forward;
+        accVector = acc * transform.forward - (velocity.magnitude * velocity.magnitude) * transform.forward * (accSpeed - 3) / (maxSpeed * maxSpeed) - 3 * transform.forward - OnGrass() * 10 * transform.forward;
 
         // Add it to the velocity
         velocity += accVector * deltaTime;
@@ -180,7 +162,7 @@ public class CarController : MonoBehaviour
         // Determine the rotation angle of the car
         curRotAngle += turn * deltaTime;
         Quaternion rot = Quaternion.Euler(0, curRotAngle, 0);
-        
+
         // Determine the difference in rotation since last update
         float rotDiff = curRotAngle - prevRotAngle;
         Quaternion rotVector = Quaternion.Euler(0, rotDiff, 0);
@@ -230,22 +212,44 @@ public class CarController : MonoBehaviour
         return false;
     }
 
-    // Method that resets the car to the current point in the track manager, rotated towards the next
+    public int OnGrass()
+    {
+        int wheelsOnGrass = 0;
+        RaycastHit hit;
+        for (int i = 0; i < wheels.Length; i++)
+        {
+            Physics.Raycast(wheels[i].transform.position, Vector3.down, out hit, 2f, groundMask);
+            Vector2 textureCoord = hit.textureCoord;
+
+
+            Texture2D tex = (Texture2D)hit.collider.gameObject.GetComponent<Renderer>().material.GetTexture("_MainTex");
+            Color pixCol = tex.GetPixel((int)(textureCoord.x * tex.width), (int)(textureCoord.y * tex.height));
+
+            if (pixCol.r - Color.green.r < 0.2f && pixCol.g - Color.green.g < 0.2f && pixCol.b - Color.green.b < 0.2f)
+                wheelsOnGrass++;
+        }
+        return wheelsOnGrass;
+    }
+
+    // Method that resets the car to the start of the track
     public void Reset()
     {
-        transform.position = trackManager.currentTrack.CurrentPosition();
-        transform.rotation = trackManager.currentTrack.CurrentRotation();
+        fitnessTracker.Reset();
+        transform.position = trackManager.CurrentPosition();
+        transform.rotation = trackManager.CurrentRotation();
         curRotAngle = transform.rotation.eulerAngles.y;
         prevRotAngle = transform.rotation.eulerAngles.y;
         velocity = Vector3.zero;
         acc = 0;
         turn = 0;
+        trackSphere.transform.position = transform.position;
+        trackSphere.GetComponent<TrailRenderer>().Clear();
     }
 
     // Method that gets all inputs for the neural network and then calculates the output of the network
     public bool CalculateNetworkOutput()
     {
-        int inputs = network.inputs;
+        int inputs = aIPlayer.network.inputs;
 
         // Create a new list of inputs
         input.Clear();
@@ -255,8 +259,8 @@ public class CarController : MonoBehaviour
         for (int i = 0; i < visionPoints; i++)
         {
             // Cosine space the angles of the vectors at which a wall distance is measured
-            angle = (1 - Mathf.Cos(i * Mathf.PI/ visionPoints)) * Mathf.PI;
-            
+            angle = (1 - Mathf.Cos(i * Mathf.PI / visionPoints)) * Mathf.PI;
+
             // Create the direction by rotating the forward vector by angle
             direction = new Vector3(Mathf.Cos(angle) * transform.forward.x + Mathf.Sin(angle) * transform.forward.z, 0, -Mathf.Sin(angle) * transform.forward.x + Mathf.Cos(angle) * transform.forward.z);
 
@@ -275,13 +279,13 @@ public class CarController : MonoBehaviour
         input.Add((velocity.magnitude - 15) / 5);
 
         return SetOutput(input);
-        
+
     }
 
     // Get the output of the neural network and set it to the inputs for the cars
     public bool SetOutput(List<float> input)
-    { 
-        output = network.Update(input);
+    {
+        output = aIPlayer.network.Update(input);
 
         if (output == null || output.Count < 4)
             return false;
@@ -293,7 +297,7 @@ public class CarController : MonoBehaviour
             else
                 output[i] = 0;
         }
-        
+
         acc = output[0] * accSpeed - output[1] * breakSpeed;
         turn = (output[2] - output[3]) * turnSpeed;
 
@@ -308,69 +312,24 @@ public class CarController : MonoBehaviour
         return true;
     }
 
-    // Set a new network to this car, assumed is that you want to start a simulation so the fitness is set to 0
-    public void SetNewNetwork(NeuralNetwork network, bool replay, bool stop)
-    {
-        this.network = network;
-        fitnessTracker.Reset();
-        carFollowCamera.gameObject.SetActive(false);
-
-        if (stop)
-        {
-            isActive = false;
-            network = null;
-            trailren.Clear();
-        }
-        else
-        {
-            trackSphere.transform.position = transform.position;
-            if (network == null)
-            {
-                carFollowCamera.gameObject.SetActive(true);
-                CameraController.currentActiveMainCamera = carFollowCamera;
-            }
-
-            isActive = true;
-        }
-    }
-
-    // Void that allows the car to stop moving
-    public void StandStill()
-    {
-        acc = 0;
-        velocity = Vector3.zero;
-        turn = 0;
-    }
-
-    public bool HasNetwork()
-    {
-        return network != null;
-    }
-
-    public int GetCurrentTrack()
-    {
-        return trackManager.currentTrackIndex;
-    }
-
-    public NeuralNetwork GetNetwork()
-    {
-        return network;
-    }
-
     // Getters for the fitnessTracker and trackManager
     public FitnessTracker GetFitnessTracker()
     {
         return fitnessTracker;
     }
 
-    public TrackManager GetTrackManager()
+    // Methods to set the players 
+    public void SetHumanPlayer(HumanPlayer humanPlayer)
     {
-        return trackManager;
+        this.humanPlayer = humanPlayer;
+        aIPlayer = null;
+        isActive = true;
     }
 
-    public void OnDestroy()
+    public void SetAiPlayer(AIPlayer aiPlayer)
     {
-        if(carFollowCamera!= null)
-            Destroy(carFollowCamera.gameObject);
+        this.aIPlayer = aiPlayer;
+        humanPlayer = null;
+        isActive = true;
     }
 }

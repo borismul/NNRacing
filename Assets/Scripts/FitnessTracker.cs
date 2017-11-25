@@ -19,7 +19,7 @@ public class FitnessTracker : MonoBehaviour
 
     public static ExpressionDelegate fitnessDelegate;
 
-    public TrackManager trackManager;
+    public CarTrackController trackManager;
 
     public CarController carController;
 
@@ -27,33 +27,41 @@ public class FitnessTracker : MonoBehaviour
 
     void Awake()
     {
-        trackManager = GetComponent<TrackManager>();
+        trackManager = GetComponent<CarTrackController>();
         carController = GetComponent<CarController>();
     }
 
     public bool UpdateFitness(float time, bool stopAtCrash)
     {
-        discreteDistance += trackManager.CheckSetDone(carController.transform.position);
 
-        distance = discreteDistance - trackManager.currentTrack.CheckDistance(carController.transform.position);
+        discreteDistance += trackManager.CheckSetDone(transform.position);
+        distance = discreteDistance - trackManager.CheckDistance(transform.position);
         this.time += time;
 
-        if ((laps > 0 && !trackManager.currentTrack.hasLaps) || laps == GA_Parameters.laps)
+        if ((laps > 0 && !trackManager.track.hasLaps) || laps == GA_Parameters.laps)
         {
+
             distance = discreteDistance;
             return false;
 
         }
 
-        if (trackManager.currentTrack.CheckDistance(carController.transform.position) > 20)
+        if (trackManager.CheckDistance(transform.position) > 20)
         {
             if (!stopAtCrash)
                 carController.Reset();
             else
+            {
+                //GameObject obj = new GameObject();
+                //obj.name = "nextpoint";
+                //obj.transform.position = trackManager.nextPoint.position;
+                //obj = new GameObject();
+                //obj.name = "CurrentPos";
+                //obj.transform.position = transform.position;
+
                 return false;
+            }
         }
-
-
 
         return true;
     }

@@ -2,26 +2,27 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-public class LiveViewUIController : MonoBehaviour {
+public class LiveViewUIController : MonoBehaviour
+{
 
     public Text timeLeftValue;
     public Text curSpeedValue;
-    CarTrainer carTrainer;
+    RaceManager raceManager;
     float avgSpeed;
     int count = 0;
-	// Use this for initialization
-	void Start ()
+    // Use this for initialization
+    void Start()
     {
-        carTrainer = CarTrainer.instance;
+        raceManager = RaceManager.raceManager;
     }
 
     // Update is called once per frame
-    void Update ()
+    void Update()
     {
 
-        avgSpeed = carTrainer.GetCurSpeed();
+        avgSpeed = raceManager.GetCurSpeed();
 
-        timeLeftValue.text = carTrainer.GetTimeLeft().ToString("F2");
+        timeLeftValue.text = raceManager.GetTimeLeft().ToString("F2");
         count++;
         if (count > 10)
             UpdateCurSpeed();

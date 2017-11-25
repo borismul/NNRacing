@@ -18,9 +18,6 @@ public class Genome
 
     public MutParameters mutPar;
 
-    static List<NodeGene> offspringPerceptrons = new List<NodeGene>();
-    static List<ConnectionGene> offspringConnections = new List<ConnectionGene>();
-
     static List<int> newPerceptrons = new List<int>();
     static MutParameters newMutPar;
     List<Perceptron> newPerceptronsObjects = new List<Perceptron>();
