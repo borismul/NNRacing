@@ -16,6 +16,7 @@ public class CarController : MonoBehaviour
     // Object that the camera can follow
     public GameObject[] carFollowObjects;
     public GameObject[] wheels;
+    public ParticleSystem[] wheelPs;
     public GameObject carFollowCameraPrefab;
     public GameObject trackSphere;
 
@@ -56,6 +57,11 @@ public class CarController : MonoBehaviour
     List<float> output;
     public TrailRenderer trailren;
 
+    // Stuff that is needed to see how well a car did after finishing
+    public bool finished;
+    float totalTime;
+    float finishedPosition;
+
     void Awake()
     {
         // Get used components
@@ -91,20 +97,25 @@ public class CarController : MonoBehaviour
         if (Input.GetKey(humanPlayer.controls[0]))
             acc = accSpeed;
 
-        if (Input.GetKey(humanPlayer.controls[1]))
-            acc = breakSpeed;
+        else if (Input.GetKey(humanPlayer.controls[1]))
+            acc = -breakSpeed;
+
+        else
+            acc = 0;
 
         if (Input.GetKey(humanPlayer.controls[2]))
             turn = -turnSpeed;
 
-        if (Input.GetKey(humanPlayer.controls[3]))
+        else if (Input.GetKey(humanPlayer.controls[3]))
             turn = turnSpeed;
 
+        else
+            turn = 0;
     }
 
     // Method that updates the car postition and fitness. If a something happens that should stop the simulation,
     // false is returned, else true.
-    public bool UpdateCar(float deltaTime, bool stopAtCrash)
+    public bool UpdateCar(float deltaTime, bool doNotStopAtCrash)
     {
         // If the current neural network is misformed stop simulation
         if (aIPlayer != null && !CalculateNetworkOutput())
@@ -120,22 +131,26 @@ public class CarController : MonoBehaviour
         if (OnGrass() == 4 || ((velocity.x == 0 && velocity.y == 0) && aIPlayer != null))
         {
             // If the car has to stop at a crash stop the simulation
-            if (stopAtCrash)
+            if (!doNotStopAtCrash)
             {
                 fitnessTracker.UpdateFitness(deltaTime, true);
                 //trackSphere.GetComponent<Renderer>().material.color = Color.red;
                 trackSphere.transform.position = trackSphere.transform.position - new Vector3(0, 1, 0);
+                acc = 0;
                 return false;
             }
 
             // Else reset the car and add a crash to the fitnessTracker
-            Reset();
+            Reset(true);
             fitnessTracker.AddCrash();
         }
 
         // Update the fitness tracker, checks if the number of laps has been completed and if so, stops the simulation
-        if (!fitnessTracker.UpdateFitness(deltaTime, stopAtCrash))
+        if (!fitnessTracker.UpdateFitness(deltaTime, !doNotStopAtCrash))
+        {
+            acc = 0;
             return false;
+        }
         // If everything went well let simulation continue
         return true;
     }
@@ -144,7 +159,7 @@ public class CarController : MonoBehaviour
     void Move(float deltaTime)
     {
         // Determine an accelation vector
-        accVector = acc * transform.forward - (velocity.magnitude * velocity.magnitude) * transform.forward * (accSpeed - 3) / (maxSpeed * maxSpeed) - 3 * transform.forward - OnGrass() * 10 * transform.forward;
+        accVector = acc * transform.forward - (velocity.magnitude * velocity.magnitude) * transform.forward * (accSpeed - 3) / (maxSpeed * maxSpeed) - 3 * transform.forward - OnGrass() * .05f * transform.forward * (velocity.magnitude * velocity.magnitude);
 
         // Add it to the velocity
         velocity += accVector * deltaTime;
@@ -224,17 +239,29 @@ public class CarController : MonoBehaviour
 
             Texture2D tex = (Texture2D)hit.collider.gameObject.GetComponent<Renderer>().material.GetTexture("_MainTex");
             Color pixCol = tex.GetPixel((int)(textureCoord.x * tex.width), (int)(textureCoord.y * tex.height));
-
-            if (pixCol.r - Color.green.r < 0.2f && pixCol.g - Color.green.g < 0.2f && pixCol.b - Color.green.b < 0.2f)
+            var ps = wheelPs[i].emission;
+            if (Mathf.Abs(pixCol.r - Color.green.r) < 0.05f && Mathf.Abs(pixCol.g - Color.green.g) < 0.05f && Mathf.Abs(pixCol.b - Color.green.b) < 0.05f )
+            {
                 wheelsOnGrass++;
+
+                if(GA_Parameters.updateRate == 1 && acc != 0)
+                    ps.rateOverTime = 100;
+            }
+            else
+            {
+                if (GA_Parameters.updateRate == 1 && acc != 0)
+                    ps.rateOverTime = 0;
+            }
         }
         return wheelsOnGrass;
     }
 
     // Method that resets the car to the start of the track
-    public void Reset()
+    public void Reset(bool softReset)
     {
-        fitnessTracker.Reset();
+        if(!softReset)
+            fitnessTracker.Reset();
+
         transform.position = trackManager.CurrentPosition();
         transform.rotation = trackManager.CurrentRotation();
         curRotAngle = transform.rotation.eulerAngles.y;
@@ -244,6 +271,12 @@ public class CarController : MonoBehaviour
         turn = 0;
         trackSphere.transform.position = transform.position;
         trackSphere.GetComponent<TrailRenderer>().Clear();
+        finished = false;
+
+        for(int i = 0; i < wheelPs.Length; i++)
+        {
+            wheelPs[i].Clear();
+        }
     }
 
     // Method that gets all inputs for the neural network and then calculates the output of the network
@@ -331,5 +364,46 @@ public class CarController : MonoBehaviour
         this.aIPlayer = aiPlayer;
         humanPlayer = null;
         isActive = true;
+    }
+
+    public int GetCurrentLap()
+    {
+        return Mathf.Min((int)(fitnessTracker.laps + 1), GA_Parameters.laps);
+    }
+
+    public float GetCurrentVelocity()
+    {
+        return velocity.magnitude*2;
+    }
+
+    public int GetPosition()
+    {
+        List<CarController> cars = RaceManager.raceManager.GetCurrentCompetingCars();
+        int position = 1;
+        for(int i = 0; i < cars.Count; i++)
+        {
+            if (cars[i] != this && fitnessTracker.distance < cars[i].fitnessTracker.distance && !finished)
+                position++;
+            else if (finished && cars[i].finished)
+                if (fitnessTracker.time > cars[i].fitnessTracker.time)
+                    position++;
+        }
+
+        return position;
+    }
+
+    public int GetCompetitors()
+    {
+        return RaceManager.raceManager.GetCurrentCompetingCars().Count;
+    }
+
+    public float GetFinishTime()
+    {
+        return fitnessTracker.GetFinishTime();
+    }
+
+    public void SetFinished()
+    {
+        finished = true;
     }
 }

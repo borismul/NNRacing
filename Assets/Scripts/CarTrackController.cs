@@ -58,7 +58,6 @@ public class CarTrackController : MonoBehaviour {
             {
                 for (int j = 0; j <= i; j++)
                 {
-                    //print(track.trackPoints[startPoint + j].isDone);
 
                     if (track.trackPoints[startPoint + j].isDone)
                         continue;

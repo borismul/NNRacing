@@ -66,7 +66,7 @@ public class LoadTrackManager : MonoBehaviour {
     {
         Texture2D tex = SaveableObjects.LoadTrack(name).texture;
         trackImage.enabled = true;
-        trackImage.sprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
+        trackImage.sprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, -tex.width, -tex.height), new Vector2(0.5f, 0.5f), 100.0f);
         selectedTrackName = name;
     }
 

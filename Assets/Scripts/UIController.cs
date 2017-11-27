@@ -286,7 +286,7 @@ public class UIController : MonoBehaviour
         liveViewButton.onClick.AddListener(QuitLiveView);
         SetActiveParticles(false);
         UpdateMaxSpeed(maxSpeedInput.text);
-        raceManager.AdjustViewSettings(RaceManager.ViewType.TopView);
+        raceManager.SetViewSettings(RaceManager.ViewType.TopView, true);
     }
 
     void QuitLiveView()
@@ -301,7 +301,7 @@ public class UIController : MonoBehaviour
             SetActiveParticles(true);
 
         liveViewButton.onClick.AddListener(LiveViewButton);
-        raceManager.AdjustViewSettings(RaceManager.ViewType.MenuView);
+        raceManager.SetViewSettings(RaceManager.ViewType.MenuView, true);
     }
 
     void UpdateMaxSpeed(string maxSpeedstr)
@@ -320,8 +320,6 @@ public class UIController : MonoBehaviour
         }
 
         RaceManager.raceManager.SetUpdateRate(maxSpeed, true);
-
-
     }
 
     void SavePanel()
@@ -437,9 +435,10 @@ public class UIController : MonoBehaviour
 
     void Play()
     {
+        ResetPlay();
         AddPlayers(false);
-        raceManager.AdjustViewSettings(RaceManager.ViewType.AICarView);
-        StartCoroutine(raceManager.StartRace());
+        raceManager.SetViewSettings(RaceManager.ViewType.AICarView, false);
+        activeRoutines.Add(StartCoroutine(raceManager.StartRace()));
     }
 
     void AddPlayers(bool challenge)
@@ -462,11 +461,13 @@ public class UIController : MonoBehaviour
         }
     }
 
-    void Challenge()
+    public void Challenge()
     {
+        ResetPlay();
+
         AddPlayers(true);
-        raceManager.AdjustViewSettings(RaceManager.ViewType.HumanCarView);
-        StartCoroutine(raceManager.StartRace());
+        raceManager.SetViewSettings(RaceManager.ViewType.HumanCarView, false);
+        activeRoutines.Add(StartCoroutine(raceManager.StartRace()));
     }
 
     void SetActiveParticles(bool isActive)
@@ -487,6 +488,9 @@ public class UIController : MonoBehaviour
 
     void Resume()
     {
+        ResetPlay();
+        raceManager.ResetPlayers();
+        raceManager.SetViewSettings(RaceManager.ViewType.MenuView, true);
         SetActiveParticles(true);
         networks.SetActive(false);
         pauseButton.interactable = true;
@@ -555,14 +559,12 @@ public class UIController : MonoBehaviour
             LoadNetwork(currentI);
     }
 
-    void ResetPlay()
+    public void ResetPlay()
     {
         foreach (Coroutine routine in activeRoutines)
         {
             StopCoroutine(routine);
         }
-
-        winLoseMenu.CancelAll();
 
     }
 

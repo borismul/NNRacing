@@ -9,10 +9,12 @@ public class CameraController : MonoBehaviour
 
     public GameObject menuCamera;
 
+    public RacingCanvasController raceCanvas;
+
     enum carFollowObject { thirdPerson, hood, top }
 
     // List of cars that can be followed by the camera
-    List<CarController> followCars = new List<CarController>();
+    List<CarController> followCars;
 
     // Car that is being followed
     CarController currentFollowCar;
@@ -45,7 +47,7 @@ public class CameraController : MonoBehaviour
 
     void LateUpdate()
     {
-        UpdateTransform();
+        //UpdateTransform();
     }
 
     void OnEnable()
@@ -60,12 +62,25 @@ public class CameraController : MonoBehaviour
     // Method that lets the camera follow the current carFollowObject
     public void UpdateTransform()
     {
-        if (followObjects == null)
+        if (RaceManager.raceManager.curViewType == RaceManager.ViewType.MenuView)
+            followCars = null;
+        if (followCars == null)
         {
             gameObject.SetActive(false);
             menuCamera.SetActive(true);
+            raceCanvas.gameObject.SetActive(false);
+
             return;
         }
+
+        if (currentFollowCar.finished)
+        {
+            instance.raceCanvas.FinishedCanvas(currentFollowCar);
+            return;
+        }
+
+        raceCanvas.gameObject.SetActive(true);
+        raceCanvas.UpdateCanvas(currentFollowCar, RaceManager.raceManager.GetTotalTime());
 
         if (Vector3.Distance(transform.position, followObjects[(int)followObjectIndex].transform.position) > 2)
         {
@@ -102,12 +117,11 @@ public class CameraController : MonoBehaviour
     // Method that allows to set another car to follow
     public void SetFollowCars(List<CarController> carControllers)
     {
-        gameObject.SetActive(true);
-        menuCamera.SetActive(false);
-
         if (carControllers == null)
             return;
 
+        gameObject.SetActive(true);
+        menuCamera.SetActive(false);
         followCars = carControllers;
         currentFollowCarNum = 0;
         currentFollowCar = carControllers[0];

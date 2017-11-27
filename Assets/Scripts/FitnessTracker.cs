@@ -41,6 +41,7 @@ public class FitnessTracker : MonoBehaviour
         if ((laps > 0 && !trackManager.track.hasLaps) || laps == GA_Parameters.laps)
         {
 
+            carController.SetFinished();
             distance = discreteDistance;
             return false;
 
@@ -49,15 +50,9 @@ public class FitnessTracker : MonoBehaviour
         if (trackManager.CheckDistance(transform.position) > 20)
         {
             if (!stopAtCrash)
-                carController.Reset();
+                carController.Reset(true);
             else
             {
-                //GameObject obj = new GameObject();
-                //obj.name = "nextpoint";
-                //obj.transform.position = trackManager.nextPoint.position;
-                //obj = new GameObject();
-                //obj.name = "CurrentPos";
-                //obj.transform.position = transform.position;
 
                 return false;
             }
@@ -78,7 +73,8 @@ public class FitnessTracker : MonoBehaviour
             else if (keys[i] == "c")
                 inputs.Add(crashes);
             else if (keys[i] == "l")
-                inputs.Add(totalLaps);
+                inputs.Add(laps);
+
         }
         return inputs.ToArray();
     }
@@ -86,7 +82,6 @@ public class FitnessTracker : MonoBehaviour
     public float GetFitness()
     {
         double[] inputs = CreateInputArray();
-
         float fitness = (float)fitnessDelegate.Invoke(inputs);
         return Mathf.Clamp(fitness, 0, Mathf.Infinity);
     }
@@ -111,6 +106,14 @@ public class FitnessTracker : MonoBehaviour
         crashes = 0;
         currentFitness = 0;
         totalLaps = 0;
+    }
+
+    public float GetFinishTime()
+    {
+        if (laps == totalLaps)
+            return time;
+        else
+            return -1;
     }
 
 }

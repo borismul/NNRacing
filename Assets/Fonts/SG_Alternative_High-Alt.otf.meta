@@ -1,0 +1,23 @@
+fileFormatVersion: 2
+guid: 55561d2591ab3ac4ab11ad6fed1ac803
+timeCreated: 1511703988
+licenseType: Free
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: SG Alternative
+  fontNames:
+  - SG Alternative
+  fallbackFontReferences:
+  - {fileID: 12800000, guid: 1c1ad7599aeb19f4cb07c2b4dca7399b, type: 3}
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

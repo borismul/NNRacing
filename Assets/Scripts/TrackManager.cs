@@ -74,33 +74,33 @@ public class TrackManager : MonoBehaviour
 
         if (colors[i].Count > j + 1)
         {
-            Color upPixel = colors[i][j + 1];
+            Color otherPixel = colors[i][j + 1];
 
-            if (currentPixel.r - Color.green.r < 0.2f && currentPixel.g - Color.green.g < 0.2f && currentPixel.b - Color.green.b < 0.2f && upPixel.r - 0.5f < 0.3f && upPixel.g - 0.5f < 0.3f && upPixel.b - 0.5f < 0.3f)
+            if (Mathf.Abs(currentPixel.r - Color.green.r) < 0.2f && Mathf.Abs(currentPixel.g - Color.green.g) < 0.2f && Mathf.Abs(currentPixel.b - Color.green.b) < 0.2f && (Mathf.Abs(otherPixel.r - Color.green.r) > 0.2f || Mathf.Abs(otherPixel.g - Color.green.g) > 0.2f || Mathf.Abs(otherPixel.b - Color.green.b) > 0.2f))
                 return true;
         }
 
         if (0 < j - 1)
         {
-            Color downPixel = colors[i][j - 1];
+            Color otherPixel = colors[i][j - 1];
 
-            if (currentPixel.r - Color.green.r < 0.2f && currentPixel.g - Color.green.g < 0.2f && currentPixel.b - Color.green.b < 0.2f && downPixel.r - 0.5f < 0.3f && downPixel.g - 0.5f < 0.3f && downPixel.b - 0.5f < 0.3f)
+            if (Mathf.Abs(currentPixel.r - Color.green.r) < 0.2f && Mathf.Abs(currentPixel.g - Color.green.g) < 0.2f && Mathf.Abs(currentPixel.b - Color.green.b) < 0.2f && (Mathf.Abs(otherPixel.r - Color.green.r) > 0.2f || Mathf.Abs(otherPixel.g - Color.green.g) > 0.2f || Mathf.Abs(otherPixel.b - Color.green.b) > 0.2f))
                 return true;
         }
 
         if (colors.Count > i + 1)
         {
-            Color rightPixel = colors[i + 1][j];
+            Color otherPixel = colors[i + 1][j];
 
-            if (currentPixel.r - Color.green.r < 0.2f && currentPixel.g - Color.green.g < 0.2f && currentPixel.b - Color.green.b < 0.2f && rightPixel.r - 0.5f < 0.3f && rightPixel.g - 0.5f < 0.3f && rightPixel.b - 0.5f < 0.3f)
+            if (Mathf.Abs(currentPixel.r - Color.green.r) < 0.2f && Mathf.Abs(currentPixel.g - Color.green.g) < 0.2f && Mathf.Abs(currentPixel.b - Color.green.b) < 0.2f && (Mathf.Abs(otherPixel.r - Color.green.r) > 0.2f || Mathf.Abs(otherPixel.g - Color.green.g) > 0.2f || Mathf.Abs(otherPixel.b - Color.green.b) > 0.2f))
                 return true;
         }
 
         if (0 < i - 1)
         {
-            Color leftPixel = colors[i - 1][j];
+            Color otherPixel = colors[i - 1][j];
 
-            if (currentPixel.r - Color.green.r < 0.2f && currentPixel.g - Color.green.g < 0.2f && currentPixel.b - Color.green.b < 0.2f && leftPixel.r - 0.5f < 0.3f && leftPixel.g - 0.5f < 0.3f && leftPixel.b - 0.5f < 0.3f)
+            if (Mathf.Abs(currentPixel.r - Color.green.r) < 0.2f && Mathf.Abs(currentPixel.g - Color.green.g) < 0.2f && Mathf.Abs(currentPixel.b - Color.green.b) < 0.2f && (Mathf.Abs(otherPixel.r - Color.green.r) > 0.2f || Mathf.Abs(otherPixel.g - Color.green.g) > 0.2f || Mathf.Abs(otherPixel.b - Color.green.b) > 0.2f))
                 return true;
         }
 
@@ -220,7 +220,7 @@ public class TrackManager : MonoBehaviour
     public bool SaveTrack(string trackName)
     {
         List<Vector3> trackPoints = new List<Vector3>();
-        track = new Track(trackName, AntiAlias((Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex"), 3), TexturePainter.instance.trackpoints);
+        track = new Track(trackName, (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex"), TexturePainter.instance.trackpoints);
         return SaveableObjects.SaveTrack(track);
     }
 

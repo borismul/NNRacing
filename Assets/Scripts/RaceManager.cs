@@ -37,7 +37,7 @@ public class RaceManager : MonoBehaviour
     bool stopCurRace;
 
     // The current way the training or race is viewed
-    ViewType curViewType = ViewType.MenuView;
+    public ViewType curViewType = ViewType.MenuView;
 
     void Awake()
     {
@@ -102,9 +102,13 @@ public class RaceManager : MonoBehaviour
     public IEnumerator StartRace()
     {
         CreateCars();
+
         AddPlayers();
         SetCarsReady();
-        yield return StartCoroutine(Race());
+        AdjustViewSettings();
+        Coroutine routine = StartCoroutine(Race(humanPlayers.Count > 0));
+        UIController.instance.activeRoutines.Add(routine);
+        yield return routine;
     }
 
     void CreateTrack()
@@ -133,7 +137,7 @@ public class RaceManager : MonoBehaviour
             if (cars[i].isActive)
             {
                 cars[i].trackManager.SetTrack(TrackManager.trackManager.GetTrack());
-                cars[i].Reset();
+                cars[i].Reset(false);
             }
         }
     }
@@ -141,7 +145,6 @@ public class RaceManager : MonoBehaviour
     void AddPlayers()
     {
         int count = 0;
-
         foreach (HumanPlayer humanPlayer in humanPlayers)
         {
             cars[count].gameObject.SetActive(true);
@@ -163,19 +166,20 @@ public class RaceManager : MonoBehaviour
         }
     }
 
-    public void AdjustViewSettings(ViewType view)
+    void AdjustViewSettings()
     {
-        if (view == ViewType.MenuView)
+        if (curViewType == ViewType.MenuView)
         {
             GA_Parameters.updateRate = 0;
             cameraController.SetFollowCars(null);
+            cameraController.gameObject.SetActive(false);
         }
-        else if (view == ViewType.HumanCarView || view == ViewType.AICarView)
+        else if (curViewType == ViewType.HumanCarView || curViewType == ViewType.AICarView)
         {
             GA_Parameters.updateRate = 1;
             List<CarController> carControllers = new List<CarController>();
 
-            if (view == ViewType.HumanCarView)
+            if (curViewType == ViewType.HumanCarView)
             {
                 for(int i = 0; i < cars.Count; i++)
                 {
@@ -183,6 +187,7 @@ public class RaceManager : MonoBehaviour
                         carControllers.Add(cars[i]);
                 }
                 cameraController.SetFollowCars(carControllers);
+
             }
             else
             {
@@ -211,12 +216,25 @@ public class RaceManager : MonoBehaviour
     }
 
     // Method that starts a race
-    IEnumerator Race()
+    IEnumerator Race(bool forceCompleteRace)
     {
+        if (forceCompleteRace)
+        {
+            cameraController.UpdateTransform();
+            Coroutine routine = StartCoroutine(cameraController.raceCanvas.CountDown());
+            UIController.instance.activeRoutines.Add(routine);
+            yield return routine;
+        }
+
         ResetRaceParameters();
 
+        // If a we want to do a complete race the race will only stop if everyone finishes
+        float extraTime = 0;
+        if(forceCompleteRace)
+            extraTime = 1000000000;
+
         // For each second
-        for (int k = 0; k < GA_Parameters.simulationTime; k++)
+        for (int k = 0; k < GA_Parameters.simulationTime + extraTime; k++)
         {
             // For each frame in that second
             for (int l = 0; l < GA_Parameters.fps; l++)
@@ -240,9 +258,13 @@ public class RaceManager : MonoBehaviour
                 // this is kept true if all cars are crashed
                 stopCurRace = true;
 
+                // If a camera is following a car update its transform
+                CameraController.instance.UpdateTransform();
+
                 // for each car in the group
                 for (int carControllerindex = 0; carControllerindex < cars.Count; carControllerindex++)
                 {
+
                     // Get the cars controller
                     CarController currentCarController = cars[carControllerindex];
 
@@ -250,8 +272,8 @@ public class RaceManager : MonoBehaviour
                     if (!currentCarController.isActive)
                         continue;
 
-                    // Update the car to its next position. If it returns a false it starts the next track (if possible)
-                    if (!currentCarController.UpdateCar(1f / GA_Parameters.fps, GA_Parameters.stopAtCrash))
+                    // Update the car to its next position.
+                    if (!currentCarController.UpdateCar(1f / GA_Parameters.fps, !GA_Parameters.stopAtCrash || forceCompleteRace))
                         currentCarController.isActive = false;
 
                     // if a car is still racing don't end the race
@@ -337,8 +359,31 @@ public class RaceManager : MonoBehaviour
         return GA_Parameters.simulationTime - ingameTimePassed;
     }
 
+    public float GetTotalTime()
+    {
+        return ingameTimePassed;
+    }
+
     public float GetCurSpeed()
     {
         return curSpeed;
+    }
+
+    public void SetViewSettings(ViewType view, bool updateNow)
+    {
+        curViewType = view;
+        if(updateNow)
+            AdjustViewSettings();
+    }
+
+    public List<CarController> GetCurrentCompetingCars()
+    {
+        List<CarController> currentCars = new List<CarController>();
+
+        for (int i = 0; i < cars.Count; i++)
+            if (cars[i].isActiveAndEnabled)
+                currentCars.Add(cars[i]);
+
+        return currentCars;
     }
 }
