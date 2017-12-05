@@ -45,8 +45,8 @@ public static class GA_Parameters {
     public static float savePercentage;
 
     // NN properties
-    public static int inputs = 8;
-    public static int outputs = 4;
+    public static int inputs = 30;
+    public static int outputs = 6;
 
     // Car Properies
     public static float accSpeed;
@@ -61,5 +61,8 @@ public static class GA_Parameters {
     public static int triesToFindLoopedLink = 100;
     public static int addLinkAttempts = 100;
 
+    public static bool useNoise;
+
+    public static bool breakWithSpace;
 
 }

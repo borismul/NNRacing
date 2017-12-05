@@ -81,6 +81,8 @@ public class EditorUIController : MonoBehaviour
         optionsPanel.SetActive(false);
 
         loadPanel.SetActive(true);
+        loadTrackManager.multiplePossible = false;
+
         painter.inMenu = true;
 
     }
@@ -125,9 +127,9 @@ public class EditorUIController : MonoBehaviour
     void LoadTrack()
     {
         Texture2D tex;
-        if (loadTrackManager.selectedTrackName != "")
+        if (loadTrackManager.selectedTrackNames[0] != "")
         {
-            tex = SaveableObjects.LoadTrack(loadTrackManager.selectedTrackName).texture;
+            tex = SaveableObjects.LoadTrack(loadTrackManager.selectedTrackNames[0]).texture;
             tex.filterMode = FilterMode.Point;
             TrackManager.trackManager.GetComponent<Renderer>().material.SetTexture("_MainTex", (Texture)tex);
         }

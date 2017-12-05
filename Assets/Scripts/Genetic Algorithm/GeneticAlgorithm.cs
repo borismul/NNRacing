@@ -113,6 +113,23 @@ public class GeneticAlgorithm
 
         Genome offSpring = null;
 
+        float bestFitness = 0;
+        int bestSpeciesIndex = 0;
+        for (int i = 0; i < species.Count; i++)
+        {
+            if (species[i].leader.GetFitness() > bestFitness)
+            {
+                bestSpeciesIndex = i;
+                bestFitness = species[i].leader.GetFitness();
+            }
+
+
+        }
+
+        offSpring = new Genome(species[bestSpeciesIndex].leader);
+        newPopulation.Add(offSpring);
+        spawnedSoFar++;
+
         for (int i = 0; i < species.Count; i++)
         {
             if (spawnedSoFar < GA_Parameters.populationSize)
@@ -123,7 +140,7 @@ public class GeneticAlgorithm
                 while (NumToSpawn > 0)
                 {
                     offSpring = null;
-                    if (!chosenBestYet)
+                    if (!chosenBestYet && i != bestSpeciesIndex)
                     {
                         offSpring = new Genome(species[i].leader);
                         chosenBestYet = true;

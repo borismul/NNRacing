@@ -128,15 +128,18 @@ public class TexturePainter : MonoBehaviour {
                 }
                 lastRay = rayNow;
 
-                if (hitPixels.Count == 0 || Vector2.Distance(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight), hitPixels[hitPixels.Count -1]) > 4)
+                if (hitPixels.Count == 0 || Vector2.Distance(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight), hitPixels[hitPixels.Count -1]) > 15)
                 {
                     trackpoints.Add(hit.point * 30);
                     hitPixels.Add(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight));
                 }
-                if(!drawnFinish && Vector3.Distance(trackpoints[0], trackpoints[trackpoints.Count - 1]) < 5 && trackpoints.Count > 100)
+                if(!drawnFinish && Vector3.Distance(trackpoints[0], hit.point * 30) < 5 && trackpoints.Count > 5)
                 {
+                    trackpoints.Add(hit.point * 30);
+                    hitPixels.Add(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight));
+
                     Vector2 pixel1 = hitPixels[hitPixels.Count - 3];
-                    Vector2 pixel2 = hitPixels[hitPixels.Count - 6];
+                    Vector2 pixel2 = hitPixels[hitPixels.Count - 1];
 
                     float angle;
                     if(pixel2.x - pixel1.x > 0)
@@ -148,7 +151,7 @@ public class TexturePainter : MonoBehaviour {
                     {
                         for (float j = 0; j < 5; j += 1f)
                         {
-                            Vector2 finishpixel = hitPixels[hitPixels.Count - 5] + i * new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), -Mathf.Sin(angle * Mathf.Deg2Rad)) + j * new Vector2(Mathf.Cos((angle + 90) * Mathf.Deg2Rad), -Mathf.Sin((angle + 90) * Mathf.Deg2Rad));
+                            Vector2 finishpixel = hitPixels[hitPixels.Count - 1] + (hitPixels[hitPixels.Count - 1] - hitPixels[hitPixels.Count - 2])/2 + i * new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), -Mathf.Sin(angle * Mathf.Deg2Rad)) + j * new Vector2(Mathf.Cos((angle + 90) * Mathf.Deg2Rad), -Mathf.Sin((angle + 90) * Mathf.Deg2Rad));
 
                             if(isWhite)
                                 tex.SetPixel(Mathf.FloorToInt(finishpixel.x), Mathf.FloorToInt(finishpixel.y), Color.white);

@@ -18,7 +18,6 @@ public class CarTrackController : MonoBehaviour {
         tracker = GetComponent<FitnessTracker>();
     }
 
-
     public void Reset()
     {
         foreach (TrackPoint point in track.trackPoints)
@@ -49,7 +48,22 @@ public class CarTrackController : MonoBehaviour {
     {
         int startPoint = pointNum;
         float totDistance = 0;
-        for (int i = 0; i < 30; i++)
+
+        for (int i = 1; i < 1; i++)
+        {
+            if (startPoint - i < 0)
+                break;
+
+            if (CheckDistance(carPosition, track.trackPoints[startPoint - i]) < CheckDistance(carPosition, currentPoint))
+            {
+                totDistance -= currentPoint.distance;
+                nextPoint = currentPoint;
+                currentPoint = track.trackPoints[startPoint - i];
+                return totDistance;
+            }
+        }
+
+        for (int i = 0; i < 5; i++)
         {
             if (startPoint + i == track.trackPoints.Count)
                 break;
@@ -58,10 +72,8 @@ public class CarTrackController : MonoBehaviour {
             {
                 for (int j = 0; j <= i; j++)
                 {
-
                     if (track.trackPoints[startPoint + j].isDone)
                         continue;
-
 
                     track.trackPoints[startPoint + j].SetDone();
                     currentPoint = nextPoint;
@@ -93,9 +105,24 @@ public class CarTrackController : MonoBehaviour {
         return Vector3.Distance(carPosition, point.position);
     }
 
-    public float CheckDistance(Vector3 carPosition)
+    public float CheckDistance(Vector3 carPosition, bool perpendicular)
     {
-        return Vector3.Distance(carPosition, nextPoint.position);
+        if (perpendicular)
+        {
+            if (pointNum > 0)
+            {
+                Vector3 direction = (nextPoint.position - currentPoint.position).normalized;
+                return Mathf.Abs(Vector3.Dot(direction, nextPoint.position - carPosition));
+            }
+            else
+            {
+                Vector3 direction = (nextPoint.position - track.trackPoints[pointNum].position).normalized;
+                return Mathf.Abs(Vector3.Dot(direction, nextPoint.position - carPosition));
+            }
+        }
+        else
+            return CheckDistance(carPosition, nextPoint);
+
     }
 
     public Vector3 CurrentPosition()

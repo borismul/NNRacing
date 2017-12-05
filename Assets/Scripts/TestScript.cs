@@ -30,7 +30,7 @@ public class TestScript : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(0))
         {
-            genome.AddNeuron(1, ref innovations, 100);
+            genome.AddNeuron(1, ref innovations, 3);
             network.DestroyNetwork();
             network = genome.CreateNetwork();
             network.VisualizeNetwork(panel.GetComponent<RectTransform>(), perceptron, link, loopLink, false);
@@ -38,7 +38,7 @@ public class TestScript : MonoBehaviour
         }
         if (Input.GetMouseButtonDown(1))
         {
-            genome.AddLink(1, .5f, ref innovations, 100, 100);
+            genome.AddLink(1, .5f, ref innovations, 3, 3);
             network.DestroyNetwork();
             network = genome.CreateNetwork();
             network.VisualizeNetwork(panel.GetComponent<RectTransform>(), perceptron, link, loopLink, false);

@@ -98,25 +98,25 @@ public class NeuralNetwork
     void SoftMax(List<Perceptron> outputsPerceptrons)
     {
         float outSum = 0;
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 3; i++)
         {
             outSum += Mathf.Exp(outputsPerceptrons[i].SumActivation - outputsPerceptrons[i].activationResponse);
         }
 
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 3; i++)
         {
             outputsPerceptrons[i].output = Mathf.Exp(outputsPerceptrons[i].SumActivation - outputsPerceptrons[i].activationResponse) / outSum;
             output.Add(outputsPerceptrons[i].output);
         }
         outSum = 0;
 
-        for (int i = 2; i < 4; i++)
+        for (int i = 3; i < 6; i++)
         {
             outSum += Mathf.Exp(outputsPerceptrons[i].SumActivation - outputsPerceptrons[i].activationResponse);
 
         }
 
-        for (int i = 2; i < 4; i++)
+        for (int i = 3; i < 6; i++)
         {
             outputsPerceptrons[i].output = Mathf.Exp(outputsPerceptrons[i].SumActivation - outputsPerceptrons[i].activationResponse) / outSum;
             output.Add(outputsPerceptrons[i].output);

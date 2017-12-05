@@ -34,6 +34,11 @@ public class MainMenuController : MonoBehaviour
     public Button trainingParameters;
     public Button fitnessFunction;
     public Button trainingOptionsBackButton;
+    public Button racingOptionsButton;
+
+    [Header("Racing options panel elements")]
+    public GameObject racingOptionsPanel;
+    public Button applyButton;
 
     [Header("Training parameter panel elements")]
     public GameObject trainingParametersPanel;
@@ -96,6 +101,8 @@ public class MainMenuController : MonoBehaviour
     public UIController uiController;
     public GameObject challengeMenu;
 
+    public Toggle breakWithSpaceToggle;
+
     void Start()
     {
         InitializeMainMenu();
@@ -119,6 +126,7 @@ public class MainMenuController : MonoBehaviour
     void StartTraining()
     {
         trackSelectorMenu.SetActive(true);
+        loadTrackManager.multiplePossible = true;
         trackSelectorBack.onClick.RemoveAllListeners();
         trackSelectorBack.onClick.AddListener(SelectorBack);
         selectorTrack.onClick.RemoveAllListeners();
@@ -158,10 +166,10 @@ public class MainMenuController : MonoBehaviour
     void SelectorTrack()
     {
         TrackManager manager = Instantiate(trackPrefab).GetComponent<TrackManager>();
-        manager.trackName = loadTrackManager.selectedTrackName;
 
         trainingCanvas.SetActive(true);
         CarTrainer.instance.StartSim();
+        RacingCanvasController.toTrain = true;
         transform.parent.gameObject.SetActive(false);
     }
 
@@ -193,8 +201,10 @@ public class MainMenuController : MonoBehaviour
         trainingCanvas.SetActive(false);
 
         trackSelectorMenu.SetActive(true);
-        //uiController.activeNetworks.Clear();
-        //uiController.activeNetworks.AddRange(loadNetworksManager.currentNetworks);
+        loadTrackManager.multiplePossible = false;
+
+        uiController.activeNetworks.Clear();
+        uiController.activeNetworks.AddRange(loadNetworksManager.currentNetworks);
         trackSelectorBack.onClick.RemoveAllListeners();
         trackSelectorBack.onClick.AddListener(SelectorBackToNetwork);
         selectorTrack.onClick.RemoveAllListeners();
@@ -216,12 +226,14 @@ public class MainMenuController : MonoBehaviour
 
     void StartChallengeNetwork()
     {
-        if (loadTrackManager.selectedTrackName == "")
+        if (loadTrackManager.selectedTrackNames.Count == 0)
             return;
 
         trainingCanvas.SetActive(true);
+        trainingCanvas.GetComponent<CanvasGroup>().alpha = 0;
         TrackManager manager = Instantiate(trackPrefab).GetComponent<TrackManager>();
-        manager.trackName = loadTrackManager.selectedTrackName;
+        RacingCanvasController.toTrain = false;
+
         StartCoroutine(_StartChallengeNetwork());
 
     }
@@ -229,8 +241,8 @@ public class MainMenuController : MonoBehaviour
     IEnumerator _StartChallengeNetwork()
     {
         yield return null;
-        //uiController.Challenge();
-        challengeMenu.SetActive(true);
+        uiController.Challenge(loadTrackManager.selectedTrackNames);
+        //challengeMenu.SetActive(true);
         transform.parent.gameObject.SetActive(false);
     }
 
@@ -240,6 +252,8 @@ public class MainMenuController : MonoBehaviour
         trainingParameters.onClick.AddListener(TrainingParameters);
         fitnessFunction.onClick.AddListener(FitnessFunction);
         trainingOptionsBackButton.onClick.AddListener(TrainingOptionsBack);
+        racingOptionsButton.onClick.AddListener(RacingOptions);
+        applyButton.onClick.AddListener(ApplyRacingOptions);
     }
 
     void TrainingParameters()
@@ -292,6 +306,19 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    void RacingOptions()
+    {
+        racingOptionsPanel.SetActive(true);
+        trainingOptionsPanel.SetActive(false);
+
+    }
+
+    void ApplyRacingOptions()
+    {
+        racingOptionsPanel.SetActive(false);
+        trainingOptionsPanel.SetActive(true);
+    }
+
     // Initialize the training parameters options basic panel
     void InitializeTrainingParametersBasic()
     {
@@ -303,7 +330,25 @@ public class MainMenuController : MonoBehaviour
             populationSizeSimple.text = 50.ToString();
         else
             populationSizeSimple.text = parInt.ToString();
-        
+
+        breakWithSpaceToggle.onValueChanged.AddListener(SetSpaceBarBreaking);
+
+        // Space bar braking
+        parInt = PlayerPrefs.GetInt("brake_w_space", -1);
+        if (parInt == -1)
+            breakWithSpaceToggle.isOn = false;
+        else
+        {
+            if (parInt == 1)
+            {
+                breakWithSpaceToggle.isOn = true;
+                GA_Parameters.breakWithSpace = true;
+            }
+            else
+                breakWithSpaceToggle.isOn = false;
+        }
+
+
         simulationTimeSimple.onValueChanged.AddListener(SimulationTimeSimple);
 
         // simulation time
@@ -391,7 +436,7 @@ public class MainMenuController : MonoBehaviour
         // simulation time
         float parFloat = PlayerPrefs.GetFloat("simulationTime", -1f);
         if (parFloat == -1)
-            simulationTimeAdvanced.text = 30.ToString();
+            simulationTimeAdvanced.text = 100.ToString();
         else
             simulationTimeAdvanced.text = parFloat.ToString();
 
@@ -400,7 +445,7 @@ public class MainMenuController : MonoBehaviour
         // number of laps
         parInt = PlayerPrefs.GetInt("numberOfLaps", -1);
         if (parInt == -1)
-            numberOfLapsAdvanced.text = 1.ToString();
+            numberOfLapsAdvanced.text = 3.ToString();
         else
             numberOfLapsAdvanced.text = parInt.ToString();
 
@@ -418,7 +463,7 @@ public class MainMenuController : MonoBehaviour
         // save percentage
         parFloat = PlayerPrefs.GetFloat("savePercentage", -1);
         if (parFloat == -1)
-            savePercentage.text = 10f.ToString();
+            savePercentage.text = 100f.ToString();
         else
             savePercentage.text = parFloat.ToString();
         stopAtCrashAdvanced.onValueChanged.AddListener(StopAtCrashAdvanced);
@@ -485,7 +530,7 @@ public class MainMenuController : MonoBehaviour
         // network Inputs
         parInt = PlayerPrefs.GetInt("networkInputs", -1);
         if (parInt == -1)
-            networkInputs.text = 8.ToString();
+            networkInputs.text = 30.ToString();
         else
             networkInputs.text = parInt.ToString();
 
@@ -494,7 +539,7 @@ public class MainMenuController : MonoBehaviour
         // network OutPuts
         parInt = PlayerPrefs.GetInt("networkOutputs", -1);
         if (parInt == -1)
-            networkOutputs.text = 4.ToString();
+            networkOutputs.text = 6.ToString();
         else
             networkOutputs.text = parInt.ToString();
 
@@ -575,7 +620,7 @@ public class MainMenuController : MonoBehaviour
         // perceptron add probability
         parFloat = PlayerPrefs.GetFloat("perceptronAddProbability", -1);
         if (parFloat == -1)
-            perceptronAddProbability.text = 0.03f.ToString();
+            perceptronAddProbability.text = 0.1f.ToString();
         else
             perceptronAddProbability.text = parFloat.ToString();
 
@@ -584,7 +629,7 @@ public class MainMenuController : MonoBehaviour
         // synapse add probability
         parFloat = PlayerPrefs.GetFloat("synapseAddProbability", -1);
         if (parFloat == -1)
-            synapseAddProbability.text = 0.07f.ToString();
+            synapseAddProbability.text = 0.15f.ToString();
         else
             synapseAddProbability.text = parFloat.ToString();
 
@@ -665,6 +710,19 @@ public class MainMenuController : MonoBehaviour
         populationSizeAdvanced.text = populationSizeSimple.text;
 
         PlayerPrefs.SetInt("populationSize", par);
+    }
+
+    public void SetSpaceBarBreaking(bool isOn)
+    {
+        GA_Parameters.breakWithSpace = isOn;
+
+
+        if (isOn)
+            PlayerPrefs.SetInt("brake_w_space", 1);
+        else
+            PlayerPrefs.SetInt("brake_w_space", 0);
+
+
     }
 
     void SimulationTimeSimple(string text)
@@ -939,6 +997,7 @@ public class MainMenuController : MonoBehaviour
         int par = int.Parse(text);
         if (par < 2)
             par = 2;
+
         GA_Parameters.inputs = par;
 
         PlayerPrefs.SetInt("networkInputs", par);
@@ -951,6 +1010,7 @@ public class MainMenuController : MonoBehaviour
             return;
 
         int par = int.Parse(text);
+        par = 6;
         GA_Parameters.outputs = par;
 
         PlayerPrefs.SetInt("networkOutputs", par);
@@ -1402,5 +1462,7 @@ public class MainMenuController : MonoBehaviour
         PlayerPrefs.SetString("fitnessEQ", fitness.text);
         return true;
     }
+
+
 
 }

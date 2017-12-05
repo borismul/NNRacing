@@ -16,6 +16,7 @@ public class UIController : MonoBehaviour
     // Textboxes
     public Text maximumFitnessText;
     public Text generationText;
+    public Text trackText;
     public Text timeText;
     public Text AIcurrentFitness;
     public Text yourCurrentFitness;
@@ -71,6 +72,8 @@ public class UIController : MonoBehaviour
     public GameObject liveViewCanvas;
     public InputField maxSpeedInput;
 
+    public GameObject TrackSelectMenu;
+
     public Text pausingText;
 
     public GameObject networkPanel;
@@ -99,6 +102,7 @@ public class UIController : MonoBehaviour
     public Camera liveViewCamera;
     public GameObject particles;
     ParticleSystem[] particlessys;
+
     void Awake()
     {
         instance = this;
@@ -117,10 +121,10 @@ public class UIController : MonoBehaviour
         nextGenerationInput.onClick.AddListener(GenerationUp);
         previousGenerationInput.onClick.AddListener(GenerationDown);
         generationInput.onValueChanged.AddListener(SetGeneration);
-        playButton.onClick.AddListener(Play);
+        playButton.onClick.AddListener(PlayButton);
         quitButton.onClick.AddListener(Quit);
         quitPlayButton.onClick.AddListener(QuitPlay);
-        challengeButton.onClick.AddListener(Challenge);
+        challengeButton.onClick.AddListener(ChallengeButton);
         saveButton.onClick.AddListener(SaveNN);
         cancelSave.onClick.AddListener(SaveQuit);
         saveNetworkButton.onClick.AddListener(SavePanel);
@@ -130,6 +134,21 @@ public class UIController : MonoBehaviour
         nnVisualizeStart = networkVisualize.GetComponent<RectTransform>().anchoredPosition;
         networkStart = networkPanel.GetComponent<RectTransform>().anchoredPosition;
     }
+
+    private void Update()
+    {
+        //print("Gen: " + curGeneration + " i: " + currentI);
+    }
+
+
+    public void UpdateUI(int track, int totalTracks)
+    {
+        if (totalTracks == 1)
+            trackText.text = "";
+        else
+            trackText.text = "Track: " + (track + 1).ToString() + " / " + totalTracks.ToString();
+    }
+
 
     public void UpdateUI(float maxFitness, int generation)
     {
@@ -271,6 +290,8 @@ public class UIController : MonoBehaviour
         RectTransform line = temp.GetComponent<RectTransform>();
         line.sizeDelta = new Vector2(lineWidth, lineThickness);
         line.anchoredPosition = point1;
+        if (lineRot == 0)
+            lineRot = 0.00001f;
         line.rotation = Quaternion.Euler(0, 0, lineRot * Mathf.Rad2Deg);
         line.localScale = Vector3.one;
 
@@ -347,6 +368,7 @@ public class UIController : MonoBehaviour
 
     void MainMenu()
     {
+        MyThreadPool.DestroyThreadPool();
         SceneManager.LoadScene("MainScene");
     }
 
@@ -433,12 +455,18 @@ public class UIController : MonoBehaviour
         QuitLiveView();
     }
 
-    void Play()
+    void PlayButton()
+    {
+        TrackSelectMenu.SetActive(true);
+        LoadTrackManagerDuringTraining.instance.challenge = false;
+    }
+
+    public void Play(List<string> trackNames)
     {
         ResetPlay();
         AddPlayers(false);
         raceManager.SetViewSettings(RaceManager.ViewType.AICarView, false);
-        activeRoutines.Add(StartCoroutine(raceManager.StartRace()));
+        activeRoutines.Add(StartCoroutine(raceManager.StartRace(false, trackNames, true)));
     }
 
     void AddPlayers(bool challenge)
@@ -449,7 +477,12 @@ public class UIController : MonoBehaviour
         {
             KeyCode[] keycodes = new KeyCode[4];
             keycodes[0] = KeyCode.UpArrow;
-            keycodes[1] = KeyCode.DownArrow;
+
+            if(!GA_Parameters.breakWithSpace)
+                keycodes[1] = KeyCode.DownArrow;
+            else
+                keycodes[1] = KeyCode.Space;
+
             keycodes[2] = KeyCode.LeftArrow;
             keycodes[3] = KeyCode.RightArrow;
             raceManager.AddHumanPlayer("Me", keycodes);
@@ -461,13 +494,19 @@ public class UIController : MonoBehaviour
         }
     }
 
-    public void Challenge()
+    public void Challenge(List<string> trackNames)
     {
         ResetPlay();
 
         AddPlayers(true);
         raceManager.SetViewSettings(RaceManager.ViewType.HumanCarView, false);
-        activeRoutines.Add(StartCoroutine(raceManager.StartRace()));
+        activeRoutines.Add(StartCoroutine(raceManager.StartRace(false, trackNames, true)));
+    }
+
+    void ChallengeButton()
+    {
+        TrackSelectMenu.SetActive(true);
+        LoadTrackManagerDuringTraining.instance.challenge = true;
     }
 
     void SetActiveParticles(bool isActive)

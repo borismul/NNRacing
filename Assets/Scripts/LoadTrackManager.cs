@@ -7,6 +7,8 @@ using UnityEngine.UI;
 
 public class LoadTrackManager : MonoBehaviour {
 
+    public static LoadTrackManager instance;
+
     FileInfo[] trackNames;
 
     public Button trackLoadButtonPrefab;
@@ -15,18 +17,28 @@ public class LoadTrackManager : MonoBehaviour {
 
     public LevelBuilder builder;
 
-    public string selectedTrackName;
+    public List<string> selectedTrackNames = new List<string>();
 
     public Text loadPanelText;
 
     public List<Button> currentButtons = new List<Button>();
 
-	// Use this for initialization
-	void OnEnable ()
+    public bool multiplePossible;
+
+    Image enabledImage;
+
+    public void Awake()
+    {
+        instance = this;
+    }
+
+    // Use this for initialization
+    void OnEnable ()
     {
         for (int i = 0; i < currentButtons.Count; i++)
             Destroy(currentButtons[i].gameObject);
 
+        selectedTrackNames.Clear();
         currentButtons.Clear();
         trackImage.enabled = false;
 
@@ -48,7 +60,8 @@ public class LoadTrackManager : MonoBehaviour {
             button.GetComponent<RectTransform>().sizeDelta = new Vector2(GetComponent<RectTransform>().rect.width, button.GetComponent<RectTransform>().rect.height);
 
             string name = trackNames[i].Name;
-            button.onClick.AddListener(delegate { SetButtonAction(Path.GetFileNameWithoutExtension(name)); });
+            int buttonNum = i;
+            button.onClick.AddListener(delegate { SelectButtonAction(Path.GetFileNameWithoutExtension(name), buttonNum); });
 
             height += button.GetComponent<RectTransform>().rect.height;
         }
@@ -62,12 +75,41 @@ public class LoadTrackManager : MonoBehaviour {
 
     }
 
-    void SetButtonAction(string name)
+    void SelectButtonAction(string name, int buttonNum)
     {
         Texture2D tex = SaveableObjects.LoadTrack(name).texture;
         trackImage.enabled = true;
         trackImage.sprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, -tex.width, -tex.height), new Vector2(0.5f, 0.5f), 100.0f);
-        selectedTrackName = name;
+        selectedTrackNames.Add(name);
+
+        if (multiplePossible)
+        {
+            currentButtons[buttonNum].onClick.RemoveAllListeners();
+            currentButtons[buttonNum].onClick.AddListener(delegate { DeselectAction(name, buttonNum); });
+        }
+
+        if(transform.childCount > 1)
+            currentButtons[buttonNum].transform.GetChild(1).GetComponent<Image>().enabled = true;
+
+        if (enabledImage != null && !multiplePossible)
+            enabledImage.enabled = false;
+
+        enabledImage = currentButtons[buttonNum].transform.GetChild(1).GetComponent<Image>();
+    }
+
+    void DeselectAction(string name, int buttonNum)
+    {
+        Texture2D tex = SaveableObjects.LoadTrack(name).texture;
+        trackImage.enabled = true;
+        trackImage.sprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, -tex.width, -tex.height), new Vector2(0.5f, 0.5f), 100.0f);
+
+        currentButtons[buttonNum].onClick.RemoveAllListeners();
+        currentButtons[buttonNum].onClick.AddListener(delegate { SelectButtonAction(name, buttonNum); });
+
+        currentButtons[buttonNum].transform.GetChild(1).GetComponent<Image>().enabled = false;
+
+        selectedTrackNames.Remove(name);
+
     }
 
     public void Error(string error)

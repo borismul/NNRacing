@@ -55,6 +55,7 @@ public class CarTrainer : MonoBehaviour
     public void StartSim()
     {
         InitializeNetworks();
+        MyThreadPool.StartThreadPool(4);
         StartCoroutine("Train");
     }
 
@@ -80,7 +81,7 @@ public class CarTrainer : MonoBehaviour
             {
                 raceManager.AddAIPlayer(individual.ToString(), generationNetworks[individual]);
             }
-            yield return StartCoroutine(raceManager.StartRace());
+            yield return StartCoroutine(raceManager.StartRace(true, LoadTrackManager.instance.selectedTrackNames, false));
 
             // Get the fitnesses of the networks and calculate the sum of all fitnesses
             fitnesses = raceManager.GetFitnesses();
@@ -126,6 +127,16 @@ public class CarTrainer : MonoBehaviour
     void InitializeNetworks()
     {
         pause = false;
-        ga = new GeneticAlgorithm(GA_Parameters.populationSize, GA_Parameters.inputs, 1, new int[1] { 10 }, GA_Parameters.outputs);
+        ga = new GeneticAlgorithm(GA_Parameters.populationSize, GA_Parameters.inputs + 1, 1, new int[1] { 12 }, GA_Parameters.outputs);
+    }
+
+    private void OnDestroy()
+    {
+        MyThreadPool.DestroyThreadPool();
+    }
+
+    private void OnApplicationQuit()
+    {
+        MyThreadPool.DestroyThreadPool();
     }
 }

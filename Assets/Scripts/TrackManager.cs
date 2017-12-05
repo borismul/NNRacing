@@ -4,7 +4,16 @@ using System.Collections.Generic;
 public class TrackManager : MonoBehaviour
 {
     public static TrackManager trackManager;
-    public GameObject wallPrefab;
+
+    public GameObject[] trees;
+
+    public GameObject[] bushes;
+
+    public GameObject[] grass;
+
+    public float treeChance;
+
+    public float bushChance;
 
     public string trackName;
     Track track;
@@ -14,28 +23,44 @@ public class TrackManager : MonoBehaviour
     Vector2 pixelSize;
 
     List<List<Color>> colors = new List<List<Color>>();
-    List<List<Vector3>> pixelPositions = new List<List<Vector3>>();
 
     List<GameObject> walls = new List<GameObject>();
     List<GameObject> finalWalls = new List<GameObject>();
 
-    void Start()
+    Vector2 localScale = new Vector2();
+
+    bool[,] map;
+
+    List<GameObject> fancyObjects = new List<GameObject>();
+
+    void Awake()
     {
         trackManager = this;
+    }
 
+
+    void BuildTrack(bool fancy)
+    {
         if (trackName == "")
             return;
 
-        LoadTrack(trackName);
-    }
+        RemoveFancyObjects();
 
-    public void BuildTrack()
-    {
+        track = SaveableObjects.LoadTrack(trackName);
+
+        localScale.x = transform.localScale.x;
+        localScale.y = transform.localScale.z;
+
         GetComponent<Renderer>().material.SetTexture("_MainTex", track.texture);
         Initialize();
-        GetColorsAndPositions();
-        BuildWalls();
-        OptimizeWalls();
+        GetColors();
+        CreateMap();
+
+        //if (fancy)
+        //    FancyUp();
+        //CreateWall();
+        //OptimizeWalls();
+
     }
 
     void Initialize()
@@ -47,17 +72,15 @@ public class TrackManager : MonoBehaviour
     }
 
     // Save all of the pixel colors and position in matrices
-    void GetColorsAndPositions()
+    void GetColors()
     {
+        colors.Clear();
         // Loop through the texture and add the colors and positions of the pixels to the matrices
         for (int i = 0; i < iPixels; i++)
         {
             colors.Add(new List<Color>());
-            pixelPositions.Add(new List<Vector3>());
             for (int j = 0; j < jPixels; j++)
             {
-                Vector3 position = new Vector3(pixelSize.x / 2 + pixelSize.x * i, 1, pixelSize.y / 2 + pixelSize.y * j);
-                pixelPositions[i].Add(position - Vector3.down);
                 colors[i].Add(track.texture.GetPixel(i, j));
             }
         }
@@ -69,13 +92,13 @@ public class TrackManager : MonoBehaviour
 
         Color currentPixel = colors[i][j];
 
+
         if (currentPixel == Color.gray)
             return false;
 
         if (colors[i].Count > j + 1)
         {
             Color otherPixel = colors[i][j + 1];
-
             if (Mathf.Abs(currentPixel.r - Color.green.r) < 0.2f && Mathf.Abs(currentPixel.g - Color.green.g) < 0.2f && Mathf.Abs(currentPixel.b - Color.green.b) < 0.2f && (Mathf.Abs(otherPixel.r - Color.green.r) > 0.2f || Mathf.Abs(otherPixel.g - Color.green.g) > 0.2f || Mathf.Abs(otherPixel.b - Color.green.b) > 0.2f))
                 return true;
         }
@@ -83,7 +106,6 @@ public class TrackManager : MonoBehaviour
         if (0 < j - 1)
         {
             Color otherPixel = colors[i][j - 1];
-
             if (Mathf.Abs(currentPixel.r - Color.green.r) < 0.2f && Mathf.Abs(currentPixel.g - Color.green.g) < 0.2f && Mathf.Abs(currentPixel.b - Color.green.b) < 0.2f && (Mathf.Abs(otherPixel.r - Color.green.r) > 0.2f || Mathf.Abs(otherPixel.g - Color.green.g) > 0.2f || Mathf.Abs(otherPixel.b - Color.green.b) > 0.2f))
                 return true;
         }
@@ -105,22 +127,6 @@ public class TrackManager : MonoBehaviour
         }
 
         return diff > 0.1f;
-    }
-
-    void BuildWalls()
-    {
-        for (int i = 0; i < iPixels; i++)
-        {
-            for (int j = 0; j < jPixels; j++)
-            {
-                if (hasPixelWall(i, j))
-                {
-                    GameObject wall = Instantiate(wallPrefab, pixelPositions[i][j] + new Vector3(0, 0.5f, 0), Quaternion.identity);
-                    wall.transform.localScale = new Vector3(pixelSize.x, wall.transform.localScale.y, pixelSize.y);
-                    walls.Add(wall);
-                }
-            }
-        }
     }
 
     void OptimizeWalls()
@@ -158,12 +164,272 @@ public class TrackManager : MonoBehaviour
             wall.AddComponent<MeshCollider>().sharedMesh = wallMesh;
             wall.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Standard"));
             wall.layer = 8;
-            wall.transform.position += new Vector3(300, 0, 300);
-            wall.transform.rotation = Quaternion.Euler(0, 180, 0);
+            //wall.transform.position += new Vector3(300, 0, 300);
+            //wall.transform.rotation = Quaternion.Euler(0, 180, 0);
             finalWalls.Add(wall);
         }
         for (int i = 0; i < walls.Count; i++)
             Destroy(walls[i]);
+    }
+
+    void CreateWall()
+    {
+        List<List<bool>> donePixel = new List<List<bool>>();
+
+        for (int i = 0; i < iPixels; i++)
+        {
+            donePixel.Add(new List<bool>());
+            for (int j = 0; j < jPixels; j++)
+                donePixel[i].Add(false);
+        }
+
+        Vector2 curPixel = Vector2.zero;
+        for (int i = 0; i < iPixels; i++)
+        {
+            for (int j = 0; j < jPixels; j++)
+            {
+                if (hasPixelWall(i, j) && !donePixel[i][j])
+                {
+                    curPixel = new Vector2(i, j);
+
+                    BuildWallPiece(ref donePixel, curPixel);
+                }
+            }
+        }
+
+
+
+    }
+
+    void BuildWallPiece(ref List<List<bool>> donePixel, Vector2 curPixel)
+    {
+        GameObject obj = new GameObject();
+        walls.Add(obj);
+        Mesh mesh = obj.AddComponent<MeshFilter>().mesh;
+        obj.AddComponent<MeshRenderer>();
+        obj.AddComponent<MeshCollider>();
+        List<Vector3> vert = new List<Vector3>();
+        List<int> tris = new List<int>();
+        Vector2 nextPixel = new Vector2(-1, -1);
+
+        Vector2 prevPixel = new Vector2(-1, -1);
+
+        vert.Add(Pixel2Position((int)curPixel.x,(int)curPixel.y) - Vector3.down * 15);
+        vert.Add(Pixel2Position((int)curPixel.x, (int)curPixel.y) + Vector3.down * 15);
+
+        int zero;
+        int one;
+        int two;
+        int three;
+
+        while (!donePixel[(int)curPixel.x][(int)curPixel.y])
+        {
+            donePixel[(int)curPixel.x][(int)curPixel.y] = true;
+
+            int i = (int)curPixel.x;
+            int j = (int)curPixel.y;
+
+            nextPixel.x = -1;
+            nextPixel.y = -1;
+
+            GetNextPixel(ref donePixel,ref nextPixel, i, j);
+
+            if (((int)nextPixel.x == -1 && (int)nextPixel.y == -1) && ((int)prevPixel.x != -1 && (int)prevPixel.y != -1))
+            {
+                GetNextPixel(ref donePixel, ref nextPixel, (int)prevPixel.x, (int)prevPixel.y);
+            }
+
+            if ((int)nextPixel.x == -1 && (int)nextPixel.y == -1)
+                break;
+
+            int iNew = (int)nextPixel.x;
+            int jNew = (int)nextPixel.y;
+
+            vert.Add(Pixel2Position(iNew, jNew) - Vector3.down * 15);
+            vert.Add(Pixel2Position(iNew, jNew) + Vector3.down * 15);
+
+            zero = vert.Count - 4;
+            one = vert.Count - 3;
+            two = vert.Count - 2;
+            three = vert.Count - 1;
+
+            tris.Add(zero);
+            tris.Add(one);
+            tris.Add(three);
+
+            tris.Add(zero);
+            tris.Add(three);
+            tris.Add(two);
+
+            tris.Add(zero);
+            tris.Add(three);
+            tris.Add(one);
+
+            tris.Add(zero);
+            tris.Add(two);
+            tris.Add(three);
+
+            prevPixel = curPixel;
+            curPixel = nextPixel;
+        }
+
+        zero = 0;
+        one = 1;
+        two = vert.Count - 2;
+        three = vert.Count - 1;
+
+        tris.Add(zero);
+        tris.Add(one);
+        tris.Add(three);
+
+        tris.Add(zero);
+        tris.Add(three);
+        tris.Add(two);
+
+        tris.Add(zero);
+        tris.Add(three);
+        tris.Add(one);
+
+        tris.Add(zero);
+        tris.Add(two);
+        tris.Add(three);
+
+        mesh.vertices = vert.ToArray();
+        mesh.triangles = tris.ToArray();
+
+    }
+
+    void GetNextPixel(ref List<List<bool>> donePixel, ref Vector2 nextPixel, int i, int j)
+    {
+        bool done = false;
+
+        for (int a = -1; a < 2; a++)
+        {
+            for (int b = -1; b < 2; b++)
+            {
+                if ((a == 0 && b == 0) || donePixel[i + a][j + b])
+                    continue;
+
+                if (hasPixelWall(i + a, j + b))
+                {
+                    nextPixel.x = i + a;
+                    nextPixel.y = j + b;
+                    done = true;
+                    break;
+                }
+
+                if (done)
+                    break;
+            }
+        }
+    }
+
+    void CreateMap()
+    {
+        map = new bool[iPixels, jPixels];
+        for (int i = 0; i < iPixels; i++)
+        {
+            for (int j = 0; j < jPixels; j++)
+            {
+                if (Mathf.Abs(colors[i][j].r - Color.green.r) < 0.1f && Mathf.Abs(colors[i][j].g - Color.green.g) < 0.1f && Mathf.Abs(colors[i][j].b - Color.green.b) < 0.1f)
+                    map[i, j] = false;
+                else
+                    map[i, j] = true;
+
+            }
+        }
+    }
+
+    bool CanHoldItem(int iPixel, int jPixel)
+    {
+        for(int i = -2; i < 3; i++)
+        {
+            for(int j = -2; j < 3; j++)
+            {
+
+                if (i + iPixel < 0)
+                    continue;
+
+                if (i + iPixel > iPixels - 1)
+                    continue;
+
+                if (j + jPixel < 0)
+                    continue;
+
+                if (j + jPixel > jPixels - 1)
+                    continue;
+
+                if (!HasGrass(new Vector2Int(i + iPixel, j + jPixel)))
+                    return false;
+                    
+            }
+        }
+        return true;
+    }
+
+    void FancyUp()
+    {
+
+        for(int i = 0; i < iPixels; i++)
+        {
+            for(int j = 0; j < jPixels; j++)
+            {
+                if (CanHoldItem(i,j))
+                {
+                    float rand = Random.Range(0f, 1f);
+
+                    if(rand < treeChance)
+                    {
+                        int num = Random.Range(0, trees.Length);
+                        float rot = Random.Range(0f, 360f);
+                        float scale = Random.Range(0.9f, 1.1f);
+                        GameObject obj = Instantiate(trees[num], Pixel2Position(new Vector2Int(i, j)), Quaternion.Euler(0,rot,0));
+                        obj.transform.localScale = new Vector3(scale, scale, scale);
+
+                        fancyObjects.Add(obj);
+
+                    }
+                    else if(rand - treeChance < bushChance)
+                    {
+                        int num = Random.Range(0, bushes.Length);
+                        float rot = Random.Range(0f, 360f);
+                        float scale = Random.Range(0.1f, 0.6f);
+                        GameObject obj = Instantiate(bushes[num], Pixel2Position(new Vector2Int(i, j)), Quaternion.Euler(0, rot, 0));
+
+                        obj.transform.localScale = new Vector3(scale, scale, scale);
+                        fancyObjects.Add(obj);
+
+                    }
+
+                }
+            }
+        }
+
+    }
+
+    Vector3 Pixel2Position(int pixelI, int pixelJ)
+    {
+        float x = -(pixelSize.x / 2 + pixelSize.x * pixelI) + transform.localScale.x * 10;
+        float y = 0;
+        float z = -(pixelSize.y / 2 + pixelSize.y * pixelJ) + transform.localScale.z * 10;
+        return new Vector3(x, y, z);
+    }
+
+    Vector3 Pixel2Position(Vector2Int pixel)
+    {
+        float x = -(pixelSize.x / 2 + pixelSize.x * pixel.x) + localScale.x * 10;
+        float y = 0;
+        float z = -(pixelSize.y / 2 + pixelSize.y * pixel.y) + localScale.y * 10;
+        return new Vector3(x, y, z);
+    }
+
+    Vector2Int Position2Pixel(Vector3 position)
+    {
+        int x = -Mathf.RoundToInt((position.x - localScale.x * 10 + pixelSize.x / 2) / pixelSize.x);
+        int y = -Mathf.RoundToInt((position.z - localScale.y * 10 + pixelSize.y / 2) / pixelSize.y);
+
+        return new Vector2Int(x, y);
+
     }
 
     Texture2D AntiAlias(Texture2D tex, int aliasSize)
@@ -224,14 +490,10 @@ public class TrackManager : MonoBehaviour
         return SaveableObjects.SaveTrack(track);
     }
 
-    public bool LoadTrack(string trackName)
+    public bool LoadTrack(bool fancy)
     {
-        track = SaveableObjects.LoadTrack(trackName);
-        if (track == null)
-            return false;
-        else
-            BuildTrack();
 
+        BuildTrack(fancy);
         return true;
 
     }
@@ -246,5 +508,69 @@ public class TrackManager : MonoBehaviour
         Track trackCopy = new Track(trackName, track.texture, trackPointsCopy);
 
         return trackCopy;
+    }
+
+    public bool HasGrass(Vector2Int pixel)
+    {
+        return !map[pixel.x, pixel.y];
+    }
+
+    public bool HasGrass(Vector3 position)
+    {
+        Vector2Int pixelPos = Position2Pixel(position);
+
+        if (pixelPos.x >= iPixels || pixelPos.x < 0 || pixelPos.y >= jPixels || pixelPos.y < 0)
+            return false;
+
+        return !map[pixelPos.x, pixelPos.y];
+    }
+
+    public static float WallDistance(Vector3 position, Quaternion objRotation, float angle)
+    {
+        Vector2Int currentPixel = trackManager.Position2Pixel(position);
+        float finalAngle = objRotation.eulerAngles.y + angle - 45;
+
+        Vector2 direction = (new Vector3(Mathf.Cos(finalAngle * Mathf.Deg2Rad) + Mathf.Sin(finalAngle * Mathf.Deg2Rad), Mathf.Cos(finalAngle * Mathf.Deg2Rad) - Mathf.Sin(finalAngle * Mathf.Deg2Rad))).normalized * trackManager.pixelSize.x;
+
+        float slope = Mathf.Tan(finalAngle * Mathf.Deg2Rad);
+
+        Vector2 prevPixel = currentPixel;
+        Vector2 intermediate = currentPixel;
+        bool hasGrass = false;
+        int multiplier = 20;
+        while(!hasGrass)
+        {
+            prevPixel = intermediate;
+            intermediate -= direction * multiplier;
+            currentPixel = new Vector2Int(Mathf.RoundToInt(intermediate.x), Mathf.RoundToInt(intermediate.y));
+
+            if (currentPixel.x >= trackManager.iPixels)
+                currentPixel.x = trackManager.iPixels - 1;
+            else if (currentPixel.x < 0)
+                currentPixel.x = 0;
+
+            if (currentPixel.y >= trackManager.jPixels)
+                currentPixel.y = trackManager.jPixels - 1;
+            else if (currentPixel.y < 0)
+                currentPixel.y = 0;
+            hasGrass = trackManager.HasGrass(currentPixel);
+            if (hasGrass && multiplier > 4)
+            {
+                hasGrass = false;
+                intermediate = prevPixel;
+                multiplier /= 3;
+            }
+        }
+        //Debug.DrawLine(position, trackManager.Pixel2Position(currentPixel));
+
+        return Vector3.Distance(trackManager.Pixel2Position(currentPixel), position);
+    }
+
+    void RemoveFancyObjects()
+    {
+        for(int i = 0; i < fancyObjects.Count; i++)
+        {
+            Destroy(fancyObjects[i]);
+        }
     }
 }

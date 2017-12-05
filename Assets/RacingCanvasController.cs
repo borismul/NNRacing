@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class RacingCanvasController : MonoBehaviour {
+
+    public static RacingCanvasController racingCanvas;
 
     public GameObject raceCanvas;
     public Text currentLap;
@@ -30,17 +33,23 @@ public class RacingCanvasController : MonoBehaviour {
 
     float startFontSize = 80;
 
+    public static bool toTrain = true;
+
     void Start()
     {
         retryButton.onClick.AddListener(RetryButton);
-        backButton.onClick.AddListener(BackButton);
-        backButtonImediately.onClick.AddListener(BackButton);
+        racingCanvas = this;
     }
 
     public void OnEnable()
     {
         countDownText.gameObject.SetActive(false);
         countDownText.fontSize = (int)startFontSize;
+
+        if (toTrain)
+            SetToTrain();
+        else
+            SetToMain();
 
     }
 
@@ -90,19 +99,42 @@ public class RacingCanvasController : MonoBehaviour {
 
     }
 
-    void RetryButton()
+    void BackToMain()
     {
-        countDownText.gameObject.SetActive(true);
-        UIController.instance.Challenge();
+        SceneManager.LoadScene("MainScene");
     }
 
-    void BackButton()
+    void BackToTrain()
     {
         CameraController.instance.menuCamera.SetActive(true);
         CameraController.instance.gameObject.SetActive(false);
         gameObject.SetActive(false);
         UIController.instance.ResetPlay();
         RaceManager.raceManager.SetViewSettings(RaceManager.ViewType.MenuView, true);
+    }
+
+    void RetryButton()
+    {
+        countDownText.gameObject.SetActive(true);
+        UIController.instance.Challenge(LoadTrackManagerDuringTraining.instance.selectedTrackNames);
+    }
+
+    public void SetToMain()
+    {
+        backButton.onClick.RemoveAllListeners();
+        backButtonImediately.onClick.RemoveAllListeners();
+
+        backButton.onClick.AddListener(BackToMain);
+        backButtonImediately.onClick.AddListener(BackToMain);
+    }
+
+    public void SetToTrain()
+    {
+        backButton.onClick.RemoveAllListeners();
+        backButtonImediately.onClick.RemoveAllListeners();
+
+        backButton.onClick.AddListener(BackToTrain);
+        backButtonImediately.onClick.AddListener(BackToTrain);
     }
 
     public IEnumerator CountDown()

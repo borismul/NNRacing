@@ -31,11 +31,11 @@ public class FitnessTracker : MonoBehaviour
         carController = GetComponent<CarController>();
     }
 
-    public bool UpdateFitness(float time, bool stopAtCrash)
+    public bool UpdateFitness(float time, bool stopAtCrash, Vector3 position)
     {
 
-        discreteDistance += trackManager.CheckSetDone(transform.position);
-        distance = discreteDistance - trackManager.CheckDistance(transform.position);
+        discreteDistance += trackManager.CheckSetDone(position);
+        distance = discreteDistance - trackManager.CheckDistance(position, false);
         this.time += time;
 
         if ((laps > 0 && !trackManager.track.hasLaps) || laps == GA_Parameters.laps)
@@ -47,13 +47,12 @@ public class FitnessTracker : MonoBehaviour
 
         }
 
-        if (trackManager.CheckDistance(transform.position) > 20)
+        if (trackManager.CheckDistance(position, true) > 20)
         {
             if (!stopAtCrash)
-                carController.Reset(true);
+                carController.ThreadReset(true);
             else
             {
-
                 return false;
             }
         }
