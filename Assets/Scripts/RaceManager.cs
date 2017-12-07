@@ -51,6 +51,9 @@ public class RaceManager : MonoBehaviour
 
     bool[] carDone;
 
+    int frameSkip = 0;
+    int framesSkipped = 0;
+
     void Awake()
     {
         raceManager = this;
@@ -224,6 +227,8 @@ public class RaceManager : MonoBehaviour
         {
             lock (carsLocker[i])
             {
+                cars[i].SetAiPlayer(null);
+                cars[i].SetHumanPlayer(null);
                 cars[i].isActive = false;
                 cars[i].gameObject.SetActive(false);
             }
@@ -306,20 +311,37 @@ public class RaceManager : MonoBehaviour
                 countSinceFrame++;
                 ingameTimePassed += (1f / GA_Parameters.fps);
 
-
-                // Show a frame if the framerate drops under the training framerate
-                if (Time.realtimeSinceStartup - curTime > 1f / GA_Parameters.fps)
+                float waitTime = 0;
+                float dTime = 0;
+                if (framesSkipped >= frameSkip)
                 {
-                    yield return null;
 
-                    // Calculate how fast the simulation currently is
-                    curSpeed = countSinceFrame / (GA_Parameters.fps * (Time.realtimeSinceStartup - curTime));
+                    // Show a frame if the framerate drops under the training framerate
+                    while (Time.realtimeSinceStartup - curTime < (1f / GA_Parameters.fps) * (frameSkip + 1))
+                    {
+                        waitTime += 1;
+                    }
 
-                    // reset these values
-                    countSinceFrame = 0;
+                    framesSkipped = 0;
+                    dTime = Time.realtimeSinceStartup - curTime;
                     curTime = Time.realtimeSinceStartup;
+
+                    yield return null;
+                }
+                else
+                {
+                    framesSkipped++;
+                    waitTime = 1;
+                }
+                if (waitTime == 0)
+                    frameSkip++;
+                else if (waitTime > 100)
+                {
+                    if(frameSkip > 0)
+                        frameSkip--;
                 }
 
+                print(1f / dTime);
                 // If a camera is following a car update its transform
                 CameraController.instance.UpdateTransform();
 
@@ -334,7 +356,7 @@ public class RaceManager : MonoBehaviour
                         continue;
 
                     // Update the car to its next position.
-                    currentCarController.UpdateCar(1f / GA_Parameters.fps, forceCompleteRace, GA_Parameters.simulationTime + extraTime);
+                    currentCarController.UpdateCar(1f/GA_Parameters.fps, forceCompleteRace, GA_Parameters.simulationTime + extraTime);
 
                     currentCarController.UpdateCar();
 
@@ -343,16 +365,16 @@ public class RaceManager : MonoBehaviour
                 }
 
                 // If simulating to fast a pause is set up here
-                Coroutine limitRoutine = StartCoroutine(LimitPlaybackSpeed());
+                //Coroutine limitRoutine = StartCoroutine(LimitPlaybackSpeed());
 
-                if (limitRoutine != null)
-                    yield return limitRoutine;
+                //if (limitRoutine != null)
+                //    yield return limitRoutine;
 
-                if (stopCurRace)
-                {
-                    yield return null;
-                    yield break;
-                }
+                //if (stopCurRace)
+                //{
+                //    yield return null;
+                //    yield break;
+                //}
 
             }
         }
@@ -495,10 +517,8 @@ public class RaceManager : MonoBehaviour
                 {
                     currentCar = 0;
                 }
-
                 car = cars[currentCar];
                 carIndex = currentCar;
-
             }
             
 
@@ -508,7 +528,6 @@ public class RaceManager : MonoBehaviour
                 if (MyThreadPool.abort || curDone)
                 {
                     break;
-
                 }
 
                 if (!car.isActive)

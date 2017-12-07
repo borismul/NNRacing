@@ -128,7 +128,7 @@ public class TexturePainter : MonoBehaviour {
                 }
                 lastRay = rayNow;
 
-                if (hitPixels.Count == 0 || Vector2.Distance(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight), hitPixels[hitPixels.Count -1]) > 15)
+                if (hitPixels.Count == 0 || Vector2.Distance(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight), hitPixels[hitPixels.Count -1]) > 2)
                 {
                     trackpoints.Add(hit.point * 30);
                     hitPixels.Add(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight));

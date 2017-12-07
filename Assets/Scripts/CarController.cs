@@ -149,7 +149,6 @@ public class CarController : MonoBehaviour
     // false is returned, else true.
     public bool UpdateCar(float deltaTime, bool doNotStopAtCrash, float maxTime)
     {
-
         totalTime += deltaTime;
 
         if (totalTime > maxTime)

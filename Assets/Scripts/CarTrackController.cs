@@ -49,21 +49,24 @@ public class CarTrackController : MonoBehaviour {
         int startPoint = pointNum;
         float totDistance = 0;
 
-        for (int i = 1; i < 1; i++)
+        for (int i = 1; i < 2; i++)
         {
-            if (startPoint - i < 0)
+            if (startPoint - i < 0 || startPoint - i + 2 >= track.trackPoints.Count)
                 break;
 
-            if (CheckDistance(carPosition, track.trackPoints[startPoint - i]) < CheckDistance(carPosition, currentPoint))
+            if (CheckDistance(carPosition, track.trackPoints[startPoint - i]) < CheckDistance(carPosition, track.trackPoints[startPoint - i + 1]) && CheckDistance(carPosition, track.trackPoints[startPoint - i + 2]) > CheckDistance(carPosition, track.trackPoints[startPoint - i]))
             {
                 totDistance -= currentPoint.distance;
-                nextPoint = currentPoint;
+                track.trackPoints[startPoint - i].isDone = false;
+                nextPoint = track.trackPoints[startPoint - i + 1];
                 currentPoint = track.trackPoints[startPoint - i];
-                return totDistance;
+                pointNum--;
             }
-        }
 
-        for (int i = 0; i < 5; i++)
+        }
+        startPoint = pointNum;
+
+        for (int i = 0; i < 50; i++)
         {
             if (startPoint + i == track.trackPoints.Count)
                 break;
@@ -79,14 +82,13 @@ public class CarTrackController : MonoBehaviour {
                     currentPoint = nextPoint;
                     nextPoint = track.trackPoints[pointNum];
                     pointNum++;
-
                     if (pointNum == track.trackPoints.Count)
                     {
                         tracker.laps++;
                         Reset();
-
                         currentPoint = track.trackPoints[0];
                         nextPoint = track.trackPoints[1];
+
                     }
 
                     totDistance += track.trackPoints[startPoint + j].distance;

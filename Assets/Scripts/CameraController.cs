@@ -60,7 +60,7 @@ public class CameraController : MonoBehaviour
     }
 
     // Method that lets the camera follow the current carFollowObject
-    public void UpdateTransform()
+    public void UpdateTransform(float dTime = 1f/60)
     {
         if (RaceManager.raceManager.curViewType == RaceManager.ViewType.MenuView)
             followCars = null;
@@ -92,10 +92,10 @@ public class CameraController : MonoBehaviour
         if (followObjectIndex == carFollowObject.thirdPerson)
         {
             // Follow exactly the position
-            transform.position = Vector3.Lerp(transform.position, followObjects[(int)followObjectIndex].transform.position, (currentFollowCar.maxSpeed * 0.4f + Mathf.Sqrt(currentFollowCar.velocity.magnitude)) * 1f / GA_Parameters.fps);
+            transform.position = Vector3.Lerp(transform.position, followObjects[(int)followObjectIndex].transform.position, (currentFollowCar.maxSpeed * 0.4f + Mathf.Sqrt(currentFollowCar.velocity.magnitude)) * dTime);
 
             // Lerp towards rotation to avoid stuttering
-            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, (currentFollowCar.turnSpeed * 0.1f) * 1f / GA_Parameters.fps);
+            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, (currentFollowCar.turnSpeed * 0.1f) * dTime);
         }
 
         else if (followObjectIndex == carFollowObject.hood)
@@ -104,7 +104,7 @@ public class CameraController : MonoBehaviour
             transform.position = followObjects[(int)followObjectIndex].transform.position;
 
             // Lerp towards rotation to avoid stuttering
-            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, currentFollowCar.turnSpeed * 1f / GA_Parameters.fps);
+            transform.rotation = Quaternion.Lerp(transform.rotation, followObjects[(int)followObjectIndex].transform.rotation, currentFollowCar.turnSpeed * dTime);
         }
 
         else

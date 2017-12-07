@@ -50,7 +50,7 @@ public class FitnessTracker : MonoBehaviour
         if (trackManager.CheckDistance(position, true) > 20)
         {
             if (!stopAtCrash)
-                carController.ThreadReset(true);
+                carController.Reset(true);
             else
             {
                 return false;

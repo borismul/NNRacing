@@ -15,6 +15,8 @@ public class TrackManager : MonoBehaviour
 
     public float bushChance;
 
+    public float grassChance;
+
     public string trackName;
     Track track;
 
@@ -56,8 +58,8 @@ public class TrackManager : MonoBehaviour
         GetColors();
         CreateMap();
 
-        //if (fancy)
-        //    FancyUp();
+        if (fancy)
+            FancyUp();
         //CreateWall();
         //OptimizeWalls();
 
@@ -395,6 +397,17 @@ public class TrackManager : MonoBehaviour
                         float rot = Random.Range(0f, 360f);
                         float scale = Random.Range(0.1f, 0.6f);
                         GameObject obj = Instantiate(bushes[num], Pixel2Position(new Vector2Int(i, j)), Quaternion.Euler(0, rot, 0));
+
+                        obj.transform.localScale = new Vector3(scale, scale, scale);
+                        fancyObjects.Add(obj);
+
+                    }
+                    else if (rand - treeChance - bushChance < grassChance)
+                    {
+                        int num = Random.Range(0, grass.Length);
+                        float rot = Random.Range(0f, 360f);
+                        float scale = Random.Range(1f, 2f);
+                        GameObject obj = Instantiate(grass[num], Pixel2Position(new Vector2Int(i, j)), Quaternion.Euler(0, rot, 0));
 
                         obj.transform.localScale = new Vector3(scale, scale, scale);
                         fancyObjects.Add(obj);
