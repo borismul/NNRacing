@@ -103,6 +103,8 @@ public class UIController : MonoBehaviour
     public GameObject particles;
     ParticleSystem[] particlessys;
 
+    public RacingCanvasController racingCanvasController;
+
     void Awake()
     {
         instance = this;
@@ -242,7 +244,6 @@ public class UIController : MonoBehaviour
 
             PlotLinePiece(point1, point2, maxLine, i, true);
         }
-
         for (int i = 0; i < plotDataAvg.Count - 1; i++)
         {
             point1 = new Vector2(i * xDiff + 1.5f * margin, plotDataAvg[i] * yDiff + 1.5f * margin);
@@ -300,6 +301,7 @@ public class UIController : MonoBehaviour
     void LiveViewButton()
     {
         backImage.enabled = false;
+        liveViewCamera.gameObject.SetActive(true);
         liveViewCamera.enabled = true;
         liveViewCanvas.SetActive(true);
         liveViewButton.onClick.RemoveAllListeners();
@@ -308,6 +310,9 @@ public class UIController : MonoBehaviour
         SetActiveParticles(false);
         UpdateMaxSpeed(maxSpeedInput.text);
         raceManager.SetViewSettings(RaceManager.ViewType.TopView, true);
+        raceManager.canChangeFrames = false;
+        raceManager.ClearTrails();
+
     }
 
     void QuitLiveView()
@@ -323,6 +328,7 @@ public class UIController : MonoBehaviour
 
         liveViewButton.onClick.AddListener(LiveViewButton);
         raceManager.SetViewSettings(RaceManager.ViewType.MenuView, true);
+        raceManager.canChangeFrames = true;
     }
 
     void UpdateMaxSpeed(string maxSpeedstr)
@@ -466,7 +472,10 @@ public class UIController : MonoBehaviour
         ResetPlay();
         AddPlayers(false);
         raceManager.SetViewSettings(RaceManager.ViewType.AICarView, false);
+        liveViewCamera.gameObject.SetActive(false);
         activeRoutines.Add(StartCoroutine(raceManager.StartRace(false, trackNames, true)));
+        racingCanvasController.wasChallenging = false;
+
     }
 
     void AddPlayers(bool challenge)
@@ -500,7 +509,9 @@ public class UIController : MonoBehaviour
 
         AddPlayers(true);
         raceManager.SetViewSettings(RaceManager.ViewType.HumanCarView, false);
+        liveViewCamera.gameObject.SetActive(false);
         activeRoutines.Add(StartCoroutine(raceManager.StartRace(false, trackNames, true)));
+        racingCanvasController.wasChallenging = true;
     }
 
     void ChallengeButton()

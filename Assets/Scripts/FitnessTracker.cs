@@ -14,6 +14,7 @@ public class FitnessTracker : MonoBehaviour
     public int crashes;
     public int laps;
     public int totalLaps;
+    public float TotalLapDistance;
 
     public static List<string> keys;
 
@@ -33,8 +34,9 @@ public class FitnessTracker : MonoBehaviour
 
     public bool UpdateFitness(float time, bool stopAtCrash, Vector3 position)
     {
+        float added = trackManager.CheckSetDone(position);
+        discreteDistance += added;
 
-        discreteDistance += trackManager.CheckSetDone(position);
         distance = discreteDistance - trackManager.CheckDistance(position, false);
         this.time += time;
 
@@ -50,7 +52,7 @@ public class FitnessTracker : MonoBehaviour
         if (trackManager.CheckDistance(position, true) > 20)
         {
             if (!stopAtCrash)
-                carController.Reset(true);
+                carController.Reset(true, true);
             else
             {
                 return false;
@@ -73,13 +75,19 @@ public class FitnessTracker : MonoBehaviour
                 inputs.Add(crashes);
             else if (keys[i] == "l")
                 inputs.Add(laps);
+            else if (keys[i] == "L")
+                inputs.Add(trackManager.track.length);
 
         }
+
         return inputs.ToArray();
     }
 
     public float GetFitness()
     {
+        if (time == 0 && distance == 0)
+            time = 1;
+
         double[] inputs = CreateInputArray();
         float fitness = (float)fitnessDelegate.Invoke(inputs);
         return Mathf.Clamp(fitness, 0, Mathf.Infinity);
@@ -90,26 +98,22 @@ public class FitnessTracker : MonoBehaviour
         crashes++;
     }
 
-    public void SaveCurrentFitness()
-    {
-        totalLaps += laps;
-        currentFitness += GetFitness();
-    }
-
     public void Reset()
     {
         discreteDistance = 0;
         distance = 0;
         time = 0;
-        laps = 0;
-        crashes = 0;
         currentFitness = 0;
         totalLaps = 0;
+        TotalLapDistance = 0;
+        laps = 0;
+        crashes = 0;
+        
     }
 
     public float GetFinishTime()
     {
-        if (laps == totalLaps)
+        if (laps == GA_Parameters.laps)
             return time;
         else
             return -1;

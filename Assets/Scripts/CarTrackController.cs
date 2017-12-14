@@ -13,9 +13,12 @@ public class CarTrackController : MonoBehaviour {
 
     FitnessTracker tracker;
 
+    CarController car;
+
     void Awake()
     {
         tracker = GetComponent<FitnessTracker>();
+        car = GetComponent<CarController>();
     }
 
     public void Reset()
@@ -35,6 +38,8 @@ public class CarTrackController : MonoBehaviour {
         this.track = track;
         currentPoint = track.trackPoints[0];
         nextPoint = track.trackPoints[1];
+
+        GetComponent<FitnessTracker>().TotalLapDistance = track.length;
 
         foreach (TrackPoint point in track.trackPoints)
         {
@@ -61,24 +66,34 @@ public class CarTrackController : MonoBehaviour {
                 nextPoint = track.trackPoints[startPoint - i + 1];
                 currentPoint = track.trackPoints[startPoint - i];
                 pointNum--;
+                startPoint = pointNum;
+
             }
 
         }
-        startPoint = pointNum;
 
         for (int i = 0; i < 50; i++)
         {
             if (startPoint + i == track.trackPoints.Count)
                 break;
 
-            if (CheckDistance(carPosition, track.trackPoints[startPoint + i]) < CheckDistance(carPosition, currentPoint))
+            startPoint = pointNum;
+            int nextPointIndex = startPoint + i;
+
+            if (nextPointIndex >= track.trackPoints.Count)
+                nextPointIndex = 0;
+
+            if (CheckDistance(carPosition, track.trackPoints[nextPointIndex]) < CheckDistance(carPosition, currentPoint))
             {
+
                 for (int j = 0; j <= i; j++)
                 {
                     if (track.trackPoints[startPoint + j].isDone)
                         continue;
 
-                    track.trackPoints[startPoint + j].SetDone();
+                    if (!(tracker.laps == 0 && j + startPoint == 0))
+                        track.trackPoints[startPoint + j].SetDone(car);
+
                     currentPoint = nextPoint;
                     nextPoint = track.trackPoints[pointNum];
                     pointNum++;
@@ -86,17 +101,15 @@ public class CarTrackController : MonoBehaviour {
                     {
                         tracker.laps++;
                         Reset();
-                        currentPoint = track.trackPoints[0];
-                        nextPoint = track.trackPoints[1];
-
+                        startPoint = pointNum;
                     }
 
                     totDistance += track.trackPoints[startPoint + j].distance;
                 }
-
             }
-
         }
+
+        startPoint = pointNum;
 
         return totDistance;
 

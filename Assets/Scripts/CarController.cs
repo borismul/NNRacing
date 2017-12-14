@@ -51,7 +51,7 @@ public class CarController : MonoBehaviour
     public HumanPlayer humanPlayer;
     public AIPlayer aIPlayer;
 
-    public bool isActive;
+    bool isActive;
 
     // Stuff declared so garbage collector has less overhead
     List<float> input = new List<float>();
@@ -70,7 +70,7 @@ public class CarController : MonoBehaviour
 
 
     int skip = 0;
-    List<Vector3> positions = new List<Vector3>();
+    public List<Vector3> positions = new List<Vector3>();
     List<Quaternion> rotations = new List<Quaternion>();
 
     Vector3 position;
@@ -86,6 +86,15 @@ public class CarController : MonoBehaviour
 
     public static int doneCounter = 0;
     public static object doneLocker = new object();
+    public object activeLocker = new object();
+
+    float lastTimePointTime;
+
+    public static CarController leader;
+
+    public float totalFitness;
+
+    public bool followCar;
 
     void Awake()
     {
@@ -115,10 +124,6 @@ public class CarController : MonoBehaviour
             trailren.sortingOrder = 11;
         }
 
-        Color col = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f));
-        trailren.material.color = col;
-        trailren.gameObject.GetComponent<Renderer>().material.color = col;
-
 
     }
 
@@ -147,8 +152,11 @@ public class CarController : MonoBehaviour
 
     // Method that updates the car postition and fitness. If a something happens that should stop the simulation,
     // false is returned, else true.
-    public bool UpdateCar(float deltaTime, bool doNotStopAtCrash, float maxTime)
+    public bool UpdateCar(float deltaTime, bool doNotStopAtCrash, float maxTime, bool onlyLastPos)
     {
+        if (!threaded && GetPosition() == 1)
+            leader = this;
+
         totalTime += deltaTime;
 
         if (totalTime > maxTime)
@@ -162,12 +170,10 @@ public class CarController : MonoBehaviour
             GetInputs();
 
         // Move the car
-        Move(deltaTime);
-
-
+        Move(deltaTime, onlyLastPos);
 
         // If the car has a collision
-        if (OnGrass() == 4 || ((velocity.x == 0 && velocity.y == 0) && aIPlayer != null))
+        if (OnGrass() == 4 || ((velocity.x == 0 && velocity.z == 0) && aIPlayer != null))
         {
             // If the car has to stop at a crash stop the simulation
             if (threaded && !doNotStopAtCrash)
@@ -180,7 +186,7 @@ public class CarController : MonoBehaviour
             }
 
             // Else reset the car and add a crash to the fitnessTracker
-            Reset(true);
+            Reset(true, true);
             fitnessTracker.AddCrash();
         }
 
@@ -195,7 +201,7 @@ public class CarController : MonoBehaviour
     }
 
     // Method that moves and rotates the car to its new position
-    void Move(float deltaTime)
+    void Move(float deltaTime, bool onlyLastPos)
     {
         // Acceleration caused by forces
         float engine = acc;
@@ -206,8 +212,11 @@ public class CarController : MonoBehaviour
         // Determine an accelation vector
         accVector = (engine - airDrag - wheelDrag - grassDrag) * (rotation * Vector3.forward);
 
+        Vector3 velocity_ip1 = velocity + accVector * deltaTime;
+        Vector3 velocity_ip2 = velocity_ip1 + accVector * deltaTime;
+
         // Add it to the velocity
-        velocity += accVector * deltaTime;
+        velocity = velocity_ip1;
 
         // If the velocity reached its maximum speed, reduce it to the maximum velocity
         if (velocity.magnitude > maxSpeed)
@@ -216,18 +225,21 @@ public class CarController : MonoBehaviour
             velocity *= maxSpeed;
         }
 
-        if (Vector3.Dot(velocity, rotation * Vector3.forward) < 0f)
-            velocity = Vector3.zero;
-
-        turnAcc = (turn + turnAcc*4) / 5;
+        turnAcc = turn;/*(turn + turnAcc*4) / 5;*/
 
         // Determine the rotation angle of the car
-        curRotAngle += turnAcc * deltaTime;
+        float rotangle_ip1 = curRotAngle + turnAcc * deltaTime;
+        float rotangle_ip2 = rotangle_ip1 + turnAcc * deltaTime;
+
+        curRotAngle = rotangle_ip1;
 
         if (curRotAngle == 0)
             curRotAngle = 0.001f;
 
         Quaternion rot = Quaternion.Euler(0, curRotAngle, 0);
+
+        if (Vector3.Dot(velocity, rot * Vector3.forward) < 0f)
+            velocity = Vector3.zero;
 
         // Determine the difference in rotation since last update
         float rotDiff = curRotAngle - prevRotAngle;
@@ -236,19 +248,40 @@ public class CarController : MonoBehaviour
         // Rotate the velocity vector by this amount
         velocity = rotVector * velocity;
 
-        if (aIPlayer != null && (velocity.x == 0 && velocity.y == 0) && threaded == false)
+        if (aIPlayer != null && (velocity.x == 0 && velocity.z == 0) && threaded == false)
             velocity = transform.forward * maxSpeed / 10;
 
         // Set the new position and rotation
         position += velocity * deltaTime;
         rotation = rot;
 
-        lock(positionsLock)
-            positions.Add(position);
+        if (onlyLastPos)
+        {
+            lock (positionsLock)
+            {
+                lock (rotationsLock)
+                {
+                    if (positions.Count == 0)
+                    {
+                        positions.Add(position);
+                        rotations.Add(rotation);
+                    }
+                    else
+                    {
+                        positions[0] = position;
+                        rotations[0] = rotation;
+                    }
+                }
+            }
+        }
+        else
+        {
+            lock (positionsLock)
+                positions.Add(position);
 
-        lock(rotationsLock)
-            rotations.Add(rotation);
-
+            lock (rotationsLock)
+                rotations.Add(rotation);
+        }
         // Store the current rotation angle
         prevRotAngle = curRotAngle;
     }
@@ -313,6 +346,11 @@ public class CarController : MonoBehaviour
                 }
             }
         }
+
+        if (aIPlayer != null)
+            if(TrackManager.trackManager.HasGrass(position))
+                return 4;
+
         return wheelsOnGrass;
     }
 
@@ -451,10 +489,9 @@ public class CarController : MonoBehaviour
     }
 
     // Method that resets the car to the start of the track (used by the main unity thread)
-    public void Reset(bool softReset)
+    public void Reset(bool softReset, bool crashReset)
     {
-        if (!softReset)
-            fitnessTracker.Reset();
+        fitnessTracker.Reset();
 
         transform.position = trackManager.CurrentPosition();
         transform.rotation = trackManager.CurrentRotation();
@@ -484,7 +521,13 @@ public class CarController : MonoBehaviour
 
         finished = false;
         jitterPenalty = 0;
-        totalTime = 0;
+        if(!crashReset)
+            totalTime = 0;
+
+        if (!softReset)
+        {
+            totalFitness = 0;
+        }
     }
 
     public bool UpdateCar()
@@ -493,6 +536,7 @@ public class CarController : MonoBehaviour
         {
             lock (rotationsLock)
             {
+
                 if (rotations.Count > 0 && positions.Count > 0)
                 {
                     transform.position = positions[0];
@@ -505,20 +549,21 @@ public class CarController : MonoBehaviour
                 }
                 else
                 {
-                    if (isActive)
-                    {
-                        return false;
-                    }
-                    else return true;
+                    return false;
                 }
+                
+       
             }
         }
     }
 
     public bool IsDone()
     {
-        if (positions.Count == 0 && !isActive)
-            return true;
+        lock (activeLocker)
+        {
+            if (positions.Count == 0 && !isActive)
+                return true;
+        }
 
         return false;
     }
@@ -583,5 +628,46 @@ public class CarController : MonoBehaviour
     public void SetFinished()
     {
         finished = true;
+    }
+
+    public void SetActive(bool active)
+    {
+        lock (activeLocker)
+            isActive = active;
+    }
+
+    public bool GetActive()
+    {
+        lock (activeLocker)
+            return isActive;
+    }
+
+    public void ClearTrail()
+    {
+        trailren.Clear();
+    }
+
+    public void SetLastTimePoint()
+    { 
+        if (GetPosition() == 1)
+            leader = this;
+
+        lastTimePointTime = totalTime;
+
+
+        if (followCar && GetPosition() > 1)
+        {
+            StartCoroutine(RacingCanvasController.racingCanvas.SetSplit(lastTimePointTime - leader.lastTimePointTime));
+        }
+
+        else if (leader.followCar && GetPosition() == 2)
+        {
+            StartCoroutine(RacingCanvasController.racingCanvas.SetSplit(leader.lastTimePointTime - lastTimePointTime));
+        }
+    }
+
+    public void EvalTotalFitness()
+    {
+        totalFitness += fitnessTracker.GetFitness();
     }
 }

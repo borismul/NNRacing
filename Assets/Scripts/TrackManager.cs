@@ -18,6 +18,7 @@ public class TrackManager : MonoBehaviour
     public float grassChance;
 
     public string trackName;
+
     Track track;
 
     int iPixels;
@@ -35,20 +36,25 @@ public class TrackManager : MonoBehaviour
 
     List<GameObject> fancyObjects = new List<GameObject>();
 
+    Texture2D curTex;
+
     void Awake()
     {
         trackManager = this;
     }
-
 
     void BuildTrack(bool fancy)
     {
         if (trackName == "")
             return;
 
+        if (curTex != null)
+            Destroy(curTex);
+
         RemoveFancyObjects();
 
         track = SaveableObjects.LoadTrack(trackName);
+        curTex = track.texture;
 
         localScale.x = transform.localScale.x;
         localScale.y = transform.localScale.z;
@@ -525,6 +531,9 @@ public class TrackManager : MonoBehaviour
 
     public bool HasGrass(Vector2Int pixel)
     {
+        if (pixel.x >= iPixels || pixel.x < 0 || pixel.y >= jPixels || pixel.y < 0)
+            return true;
+
         return !map[pixel.x, pixel.y];
     }
 
@@ -533,7 +542,8 @@ public class TrackManager : MonoBehaviour
         Vector2Int pixelPos = Position2Pixel(position);
 
         if (pixelPos.x >= iPixels || pixelPos.x < 0 || pixelPos.y >= jPixels || pixelPos.y < 0)
-            return false;
+            return true;
+
 
         return !map[pixelPos.x, pixelPos.y];
     }
@@ -551,11 +561,19 @@ public class TrackManager : MonoBehaviour
         Vector2 intermediate = currentPixel;
         bool hasGrass = false;
         int multiplier = 20;
+        int count = 0;
+
         while(!hasGrass)
         {
             prevPixel = intermediate;
-            intermediate -= direction * multiplier;
-            currentPixel = new Vector2Int(Mathf.RoundToInt(intermediate.x), Mathf.RoundToInt(intermediate.y));
+
+            if (count < 20)
+                intermediate -= direction * 2;
+            else
+                intermediate -= direction * multiplier;
+
+            currentPixel.x = (int)(intermediate.x);
+            currentPixel.y = (int)(intermediate.y);
 
             if (currentPixel.x >= trackManager.iPixels)
                 currentPixel.x = trackManager.iPixels - 1;
@@ -567,12 +585,13 @@ public class TrackManager : MonoBehaviour
             else if (currentPixel.y < 0)
                 currentPixel.y = 0;
             hasGrass = trackManager.HasGrass(currentPixel);
-            if (hasGrass && multiplier > 4)
+            if (hasGrass && multiplier > 4 && count >= 20)
             {
                 hasGrass = false;
                 intermediate = prevPixel;
                 multiplier /= 3;
             }
+            count += 1;
         }
         //Debug.DrawLine(position, trackManager.Pixel2Position(currentPixel));
 
@@ -586,4 +605,6 @@ public class TrackManager : MonoBehaviour
             Destroy(fancyObjects[i]);
         }
     }
+
+
 }

@@ -41,7 +41,7 @@ public class CarTrainer : MonoBehaviour
 
     void Awake()
     {
-        Application.targetFrameRate = 60;
+        Application.targetFrameRate = -1;
         Application.runInBackground = true;
         instance = this;
     }
@@ -54,8 +54,10 @@ public class CarTrainer : MonoBehaviour
     // This method starts the training of the neural networks
     public void StartSim()
     {
+        pause = false;
+        isPaused = false;
         InitializeNetworks();
-        MyThreadPool.StartThreadPool(4);
+        MyThreadPool.StartThreadPool(6);
         StartCoroutine("Train");
     }
 
@@ -71,7 +73,6 @@ public class CarTrainer : MonoBehaviour
             // This pauses the training 
             yield return StartCoroutine(Pause());
 
-            curGeneration++;
             fitnesses.Clear();
             float sum = 0;
 
@@ -93,10 +94,12 @@ public class CarTrainer : MonoBehaviour
 
                 sum += fitnesses[i];
             }
+            curGeneration++;
 
             // Restart the simulation if non of the cars has a fitness higher than 0
             if (sum == 0)
             {
+                curGeneration = 0;
                 InitializeNetworks();
                 generationNetworks = ga.CreateNetworks();
                 continue;

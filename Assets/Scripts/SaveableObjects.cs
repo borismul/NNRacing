@@ -53,10 +53,10 @@ public class SaveableObjects {
 
     public static Track LoadTrack(string name)
     {
+        BinaryFormatter bf = new BinaryFormatter();
+        FileStream file = File.Open(Application.persistentDataPath + "/Tracks/" + name + ".trk", FileMode.Open);
         try
         {
-            BinaryFormatter bf = new BinaryFormatter();
-            FileStream file = File.Open(Application.persistentDataPath + "/Tracks/" + name + ".trk", FileMode.Open);
             SaveableTrack saveableTrack = (SaveableTrack)bf.Deserialize(file);
             file.Close();
             Texture2D tex = new Texture2D(saveableTrack.texWidth, saveableTrack.texHeight, TextureFormat.ARGB32, false);
@@ -69,11 +69,13 @@ public class SaveableObjects {
             }
 
             Track track = new Track(saveableTrack.name, tex, trackpoints);
+            file.Close();
             return track;
 
         }
         catch (System.Exception e)
         {
+            file.Close();
             Debug.Log(e);
             return null;
         }

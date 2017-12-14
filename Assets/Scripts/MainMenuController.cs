@@ -28,6 +28,7 @@ public class MainMenuController : MonoBehaviour
     public GameObject trackPrefab;
     public Button selectorTrack;
     public Button trackSelectorBack;
+    public Button RemoveButton;
 
     [Header("Training options panel elements")]
     public GameObject trainingOptionsPanel;
@@ -102,6 +103,8 @@ public class MainMenuController : MonoBehaviour
     public GameObject challengeMenu;
 
     public Toggle breakWithSpaceToggle;
+
+    public LoadTrackManagerDuringTraining loadManagerDuringTraining;
 
     void Start()
     {
@@ -194,8 +197,8 @@ public class MainMenuController : MonoBehaviour
 
     void SelectorNetwork()
     {
-        if (loadNetworksManager.currentNetworks.Count == 0)
-            return;
+        //if (loadNetworksManager.currentNetworks.Count == 0)
+        //    return;
 
         trainingCanvas.SetActive(true);
         trainingCanvas.SetActive(false);
@@ -211,8 +214,11 @@ public class MainMenuController : MonoBehaviour
         selectorTrack.onClick.AddListener(StartChallengeNetwork);
         networkSelectorMenu.SetActive(false);
 
-        loadNetworksManager.currentNetworks[0].DestroyNetwork();
-        loadNetworksManager.currentNetworks.Clear();
+        if (loadNetworksManager.currentNetworks.Count != 0)
+        {
+            loadNetworksManager.currentNetworks[0].DestroyNetwork();
+            loadNetworksManager.currentNetworks.Clear();
+        }
     }
 
     void SelectorNetworkBack()
@@ -242,6 +248,7 @@ public class MainMenuController : MonoBehaviour
     {
         yield return null;
         uiController.Challenge(loadTrackManager.selectedTrackNames);
+        loadManagerDuringTraining.selectedTrackNames = loadTrackManager.selectedTrackNames;
         //challengeMenu.SetActive(true);
         transform.parent.gameObject.SetActive(false);
     }
@@ -1385,7 +1392,7 @@ public class MainMenuController : MonoBehaviour
             }
             return false;
         }
-        List<string> expectedKeys = new List<string>() { "x", "t", "c", "l" };
+        List<string> expectedKeys = new List<string>() { "x", "t", "c", "l", "L" };
         FitnessTracker.keys = new List<string>();
         foreach (string key in exp.Parameters.Keys)
         {

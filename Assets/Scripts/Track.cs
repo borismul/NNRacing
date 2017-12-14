@@ -9,7 +9,7 @@ public class Track
     public string trackName;
     public Texture2D texture;
     public List<TrackPoint> trackPoints;
-
+    public float length = 0;
     public bool hasLaps;
 
 
@@ -20,7 +20,7 @@ public class Track
     {
         trackName = name;
         this.texture = texture;
-        this.trackPoints = TrackPoint.CreateTrackPointList(trackPoints);
+        this.trackPoints = TrackPoint.CreateTrackPointList(trackPoints, out length);
         // Check if lap is a loop so car can do multiple laps
         if (Vector3.Distance(this.trackPoints[0].position, this.trackPoints[trackPoints.Count - 1].position) < 10)
         {

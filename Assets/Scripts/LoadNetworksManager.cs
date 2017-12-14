@@ -35,7 +35,8 @@ public class LoadNetworksManager : MonoBehaviour {
     void OnEnable()
     {
         for (int i = 0; i < currentButtons.Count; i++)
-            Destroy(currentButtons[i].gameObject);
+            if(currentButtons[i] != null)
+                Destroy(currentButtons[i].gameObject);
 
         currentButtons.Clear();
         activeButtons.Clear();
@@ -51,6 +52,7 @@ public class LoadNetworksManager : MonoBehaviour {
         for (int i = 0; i < annNames.Length; i++)
         {
             Button button = Instantiate(annLoadButtonPrefab, gameObject.transform, false);
+            Button deleteButton = button.transform.GetChild(1).GetComponent<Button>();
             currentButtons.Add(button);
             button.GetComponentInChildren<Text>().text = Path.GetFileNameWithoutExtension(annNames[i].Name);
 
@@ -60,7 +62,7 @@ public class LoadNetworksManager : MonoBehaviour {
             string name = annNames[i].Name;
             int index = i;
             button.onClick.AddListener(delegate { SetButtonAction(Path.GetFileNameWithoutExtension(name), index); });
-
+            deleteButton.onClick.AddListener(delegate { Delete(annNames[index].Name, button); } );
             height += button.GetComponent<RectTransform>().rect.height;
         }
 
@@ -133,14 +135,26 @@ public class LoadNetworksManager : MonoBehaviour {
         }
         else
             multipleSelected.enabled = false;
-
-
     }
 
     public void Error(string error)
     {
         loadPanelText.color = Color.red;
         loadPanelText.text = error;
+    }
+
+    void Delete(string name, Button but)
+    {
+        File.Delete(Application.persistentDataPath + "/Artificial Neural Networks/" + name);
+        Destroy(but.gameObject);
+        currentNetworks.Clear();
+
+        for(int i = 0; i < currentButtons.Count; i++)
+        {
+            currentButtons[i].GetComponent<Image>().color = Color.white;
+        }
+
+        multipleSelected.enabled = false;
     }
 
 }

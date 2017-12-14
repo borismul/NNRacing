@@ -8,6 +8,7 @@ public class RaceManager : MonoBehaviour
     public enum ViewType { MenuView, TopView, AICarView, HumanCarView }
 
     public static RaceManager raceManager;
+    object counterLocker = new object();
 
     CameraController cameraController;
 
@@ -46,13 +47,26 @@ public class RaceManager : MonoBehaviour
     object frameLocker = new object();
     object[] carsLocker = new object[GA_Parameters.populationSize];
     object simLock = new object();
-
+    object framesPerThreadLocker = new object();
+    object curDoneLocker = new object();
+    object threadCounterLocker = new object();
     bool curDone = false;
 
     bool[] carDone;
-
+    bool pause;
     int frameSkip = 0;
     int framesSkipped = 0;
+    int threadCounter = 0;
+    public bool canChangeFrames;
+    bool training;
+    float deltaTime;
+    float maxDeltaTime;
+
+    public PositionsInfoManager posManager;
+
+    CustomFixedUpdate m_FixedUpdate;
+    public bool runRace;
+    bool finished = true;
 
     void Awake()
     {
@@ -71,7 +85,42 @@ public class RaceManager : MonoBehaviour
             carsLocker[i] = new object();
             carDone[i] = false;
         }
+    }
 
+    void Update()
+    {
+        if(!training)
+            FinishRace();
+
+        if (!runRace || pause)
+            return;
+
+        Race(Time.smoothDeltaTime);
+    }
+
+    private void LateUpdate()
+    {
+        if (!runRace || pause)
+            return;
+
+        cameraController.UpdateTransform(Time.smoothDeltaTime);
+    }
+
+    void FinishRace()
+    {
+        if (!finished && !runRace)
+        {
+            List<CarController> currentCars = new List<CarController>();
+
+            for (int i = 0; i < cars.Count; i++)
+            {
+                if (cars[i].humanPlayer != null || cars[i].aIPlayer != null)
+                    currentCars.Add(cars[i]);
+            }
+
+            posManager.CreatePositionList(currentCars);
+            finished = true;
+        }
     }
 
     void NextTrack()
@@ -123,13 +172,20 @@ public class RaceManager : MonoBehaviour
     {
         for (int i = 0; i < tracks.Count; i++)
         {
+            System.GC.Collect();
             UIController.instance.UpdateUI(i, tracks.Count);
 
             TrackManager.trackManager.trackName = tracks[i];
             TrackManager.trackManager.LoadTrack(fancy);
 
-            CreateCars();
+            carsLocker = new object[GA_Parameters.populationSize];
 
+            for (int cars = 0; cars < carsLocker.Length; cars++)
+            {
+                carsLocker[cars] = new object();
+            }
+
+            CreateCars(!threaded);
             AddPlayers();
             SetCarsReady(threaded, i == 0);
             AdjustViewSettings();
@@ -138,15 +194,27 @@ public class RaceManager : MonoBehaviour
 
             if (threaded)
             {
+
+                training = true;
+                runRace = false;
                 Coroutine routine = StartCoroutine(ThreadedRace(humanPlayers.Count > 0));
                 UIController.instance.activeRoutines.Add(routine);
                 yield return routine;
+                UpdateFitnesses();
             }
             else
             {
-                Coroutine routine = StartCoroutine(Race(humanPlayers.Count > 0));
-                UIController.instance.activeRoutines.Add(routine);
-                yield return routine;
+                if (humanPlayers.Count > 0)
+                {
+                    cameraController.UpdateTransform();
+                    Coroutine routine = StartCoroutine(cameraController.raceCanvas.CountDown());
+                    UIController.instance.activeRoutines.Add(routine);
+                    yield return routine;
+                }
+                ResetRaceParameters();
+                curTime = Time.realtimeSinceStartup; ;
+                training = false;
+                runRace = true;
             }
         }
     }
@@ -159,8 +227,18 @@ public class RaceManager : MonoBehaviour
         currentTrackObj = Instantiate(trackPrefab);
     }
 
-    void CreateCars()
+    void CreateCars(bool destroyFirst)
     {
+        if (destroyFirst)
+        {
+            for (int i = 0; i < cars.Count; i++)
+            {
+                Destroy(cars[i].gameObject);
+            }
+
+            cars.Clear();
+        }
+
         if (humanPlayers.Count + aiPlayers.Count > cars.Count)
         {
             while (humanPlayers.Count + aiPlayers.Count > cars.Count)
@@ -176,10 +254,10 @@ public class RaceManager : MonoBehaviour
         {
             lock (carsLocker[i])
             {
-                if (cars[i].isActive)
+                if (cars[i].GetActive())
                 {
                     cars[i].trackManager.SetTrack(TrackManager.trackManager.GetTrack());
-                    cars[i].Reset(!completeReset);
+                    cars[i].Reset(!completeReset, false);
                     cars[i].threaded = threaded;
 
                     if (!threaded)
@@ -229,7 +307,7 @@ public class RaceManager : MonoBehaviour
             {
                 cars[i].SetAiPlayer(null);
                 cars[i].SetHumanPlayer(null);
-                cars[i].isActive = false;
+                cars[i].SetActive(false);
                 cars[i].gameObject.SetActive(false);
             }
         }
@@ -242,31 +320,33 @@ public class RaceManager : MonoBehaviour
             GA_Parameters.updateRate = 0;
             cameraController.SetFollowCars(null);
             cameraController.gameObject.SetActive(false);
+            canChangeFrames = true;
         }
         else if (curViewType == ViewType.HumanCarView || curViewType == ViewType.AICarView)
         {
             GA_Parameters.updateRate = 1;
             List<CarController> carControllers = new List<CarController>();
 
-            if (curViewType == ViewType.HumanCarView)
+            if (curViewType == ViewType.HumanCarView || curViewType == ViewType.AICarView)
             {
-                for(int i = 0; i < cars.Count; i++)
+                for (int i = 0; i < cars.Count; i++)
                 {
-                    if (cars[i].isActiveAndEnabled && cars[i].humanPlayer != null)
+                    if (cars[i].isActiveAndEnabled && (cars[i].humanPlayer != null || cars[i].aIPlayer != null))
                         carControllers.Add(cars[i]);
                 }
                 cameraController.SetFollowCars(carControllers);
 
             }
-            else
-            {
-                for (int i = 0; i < cars.Count; i++)
-                {
-                    if (cars[i].isActiveAndEnabled && cars[i].aIPlayer != null)
-                        carControllers.Add(cars[i]);
-                }
-                cameraController.SetFollowCars(carControllers);
-            }
+            
+        }
+    }
+
+    void UpdateFitnesses()
+    {
+        for(int i = 0; i < cars.Count; i++)
+        {
+            if (cars[i].aIPlayer != null)
+                cars[i].EvalTotalFitness();
         }
     }
 
@@ -276,8 +356,8 @@ public class RaceManager : MonoBehaviour
 
         for (int i = 0; i < cars.Count; i++)
         {
-            if(cars[i].isActiveAndEnabled)
-                fitnesses.Add(cars[i].GetFitnessTracker().GetFitness());
+            if (cars[i].isActiveAndEnabled)
+                fitnesses.Add(cars[i].totalFitness);
         }
 
         return fitnesses;
@@ -285,230 +365,187 @@ public class RaceManager : MonoBehaviour
     }
 
     // Method that starts a race
-    IEnumerator Race(bool forceCompleteRace)
+    void Race(float deltaTime)
     {
-        if (forceCompleteRace)
+        ingameTimePassed += deltaTime;
+
+        stopCurRace = true;
+
+        // for each car in the group
+        for (int carControllerindex = 0; carControllerindex < cars.Count; carControllerindex++)
         {
-            cameraController.UpdateTransform();
-            Coroutine routine = StartCoroutine(cameraController.raceCanvas.CountDown());
-            UIController.instance.activeRoutines.Add(routine);
-            yield return routine;
-        }
+            // Get the cars controller
+            CarController currentCarController = cars[carControllerindex];
 
-        ResetRaceParameters();
+            // Check if its active and if car is still racing, if not continue
+            if (currentCarController.finished || (currentCarController.humanPlayer == null && currentCarController.aIPlayer == null))
+                continue;
 
-        // If a we want to do a complete race the race will only stop if everyone finishes
-        float extraTime = 0;
-        if(forceCompleteRace)
-            extraTime = 1000000000;
-
-        // For each second
-        for (int k = 0; k < GA_Parameters.simulationTime + extraTime; k++)
-        {
-            // For each frame in that second
-            for (int l = 0; l < GA_Parameters.fps; l++)
+            // Update the car to its next position.
+            if (!currentCarController.UpdateCar(deltaTime, true, Mathf.Infinity, false))
             {
-                countSinceFrame++;
-                ingameTimePassed += (1f / GA_Parameters.fps);
-
-                float waitTime = 0;
-                float dTime = 0;
-                if (framesSkipped >= frameSkip)
-                {
-
-                    // Show a frame if the framerate drops under the training framerate
-                    while (Time.realtimeSinceStartup - curTime < (1f / GA_Parameters.fps) * (frameSkip + 1))
-                    {
-                        waitTime += 1;
-                    }
-
-                    framesSkipped = 0;
-                    dTime = Time.realtimeSinceStartup - curTime;
-                    curTime = Time.realtimeSinceStartup;
-
-                    yield return null;
-                }
-                else
-                {
-                    framesSkipped++;
-                    waitTime = 1;
-                }
-                if (waitTime == 0)
-                    frameSkip++;
-                else if (waitTime > 100)
-                {
-                    if(frameSkip > 0)
-                        frameSkip--;
-                }
-
-                print(1f / dTime);
-                // If a camera is following a car update its transform
-                CameraController.instance.UpdateTransform();
-
-                // for each car in the group
-                for (int carControllerindex = 0; carControllerindex < cars.Count; carControllerindex++)
-                {
-                    // Get the cars controller
-                    CarController currentCarController = cars[carControllerindex];
-
-                    // Check if its active and if car is still racing, if not continue
-                    if (currentCarController.finished || (currentCarController.humanPlayer == null && currentCarController.aIPlayer == null))
-                        continue;
-
-                    // Update the car to its next position.
-                    currentCarController.UpdateCar(1f/GA_Parameters.fps, forceCompleteRace, GA_Parameters.simulationTime + extraTime);
-
-                    currentCarController.UpdateCar();
-
-                    // if a car is still racing don't end the race
-                    stopCurRace = false;
-                }
-
-                // If simulating to fast a pause is set up here
-                //Coroutine limitRoutine = StartCoroutine(LimitPlaybackSpeed());
-
-                //if (limitRoutine != null)
-                //    yield return limitRoutine;
-
-                //if (stopCurRace)
-                //{
-                //    yield return null;
-                //    yield break;
-                //}
-
+                continue;
             }
+
+            if (!currentCarController.UpdateCar())
+                continue;
+
+            // if a car is still racing don't end the race
+            stopCurRace = false;
         }
+
+        if (stopCurRace)
+        {
+            runRace = false;
+        }
+
+
+
     }
 
     IEnumerator ThreadedRace(bool forceCompleteRace)
     {
         int extraTime = 0;
 
-            if (forceCompleteRace)
-            {
-                // Make sure the camera is at the right position when counting down
-                cameraController.UpdateTransform();
-
-                // Start the countdown coroutine and make sure it is added to the coroutines list
-                Coroutine routine = StartCoroutine(cameraController.raceCanvas.CountDown());
-                UIController.instance.activeRoutines.Add(routine);
-
-                // Show a frame
-                yield return routine;
-
-                // If a we want to do a complete race the race will only stop if everyone finishes
-                extraTime = 1000000000;
-            }
-
-            ResetRaceParameters();
-            CreateThreadActions((int)(GA_Parameters.simulationTime + extraTime));
-
-        // For each second
-        for (int k = 0; k < GA_Parameters.simulationTime + extraTime; k++)
+        if (forceCompleteRace)
         {
-            // For each frame in that second
-            for (int l = 0; l < GA_Parameters.fps; l++)
+            // Make sure the camera is at the right position when counting down
+            cameraController.UpdateTransform();
+
+            // Start the countdown coroutine and make sure it is added to the coroutines list
+            Coroutine routine = StartCoroutine(cameraController.raceCanvas.CountDown());
+            UIController.instance.activeRoutines.Add(routine);
+
+            // Show a frame
+            yield return routine;
+
+        }
+
+        ResetRaceParameters();
+        CreateThreadActions((int)(GA_Parameters.simulationTime + extraTime));
+
+        while (true)
+        {
+
+            ingameTimePassed += (1f / GA_Parameters.fps);
+
+            // Show a frame if the framerate drops under the training framerate
+            if (Time.realtimeSinceStartup - curTime > 1f / GA_Parameters.fps)
             {
-                countSinceFrame++;
-                ingameTimePassed += (1f / GA_Parameters.fps);
+                yield return null;
 
-                // Show a frame if the framerate drops under the training framerate
-                if (Time.realtimeSinceStartup - curTime > 1f / GA_Parameters.fps)
-                {
-                    yield return null;
-
+                if (countSinceFrame != 0)
                     // Calculate how fast the simulation currently is
                     curSpeed = countSinceFrame / (GA_Parameters.fps * (Time.realtimeSinceStartup - curTime));
+
+                // reset these values
+                countSinceFrame = 0;
+                curTime = Time.realtimeSinceStartup;
+            }
+            stopCurRace = true;
+
+            // for each car in the group
+            for (int carControllerindex = 0; carControllerindex < cars.Count; carControllerindex++)
+            {
+
+                // Get the cars controller
+
+                if (cars[carControllerindex].IsDone() && carDone[carControllerindex])
+                {
+                    continue;
+                }
+
+                int counter = 0;
+                while (!cars[carControllerindex].UpdateCar())
+                {
+                    counter++;
+                    if (counter > 10)
+                        cars[carControllerindex].SetActive(false);
+                    if (!cars[carControllerindex].GetActive())
+                        break;
+
+
+                    if (!carDone[carControllerindex])
+                        yield return null;
+
+                    if (countSinceFrame != 0)
+                        curSpeed = countSinceFrame / (GA_Parameters.fps * (Time.realtimeSinceStartup - curTime));
 
                     // reset these values
                     countSinceFrame = 0;
                     curTime = Time.realtimeSinceStartup;
                 }
-                stopCurRace = true;
-                // for each car in the group
-                for (int carControllerindex = 0; carControllerindex < cars.Count; carControllerindex++)
+
+                if (cars[carControllerindex].IsDone() && carControllerindex != 0 && !carDone[carControllerindex])
                 {
+                    cars[carControllerindex].trackSphereMat.color = Color.red;
+                    cars[carControllerindex].trailren.material.color = Color.red;
 
-                    // Get the cars controller
-                    CarController currentCarController = cars[carControllerindex];
-
-                    if (currentCarController.IsDone() && carDone[carControllerindex])
-                    {
-                        continue;
-                    }
-
-                    while (!currentCarController.UpdateCar())
-                    {
-                        yield return null;
-
-                        curSpeed = countSinceFrame / (GA_Parameters.fps * (Time.realtimeSinceStartup - curTime));
-
-                        // reset these values
-                        countSinceFrame = 0;
-                        curTime = Time.realtimeSinceStartup;
-                    }
-
-                    if (currentCarController.IsDone() && carControllerindex != 0 && !carDone[carControllerindex])
-                    {
-                        currentCarController.trackSphereMat.color = Color.red;
-                        currentCarController.trailren.material.color = Color.red;
-
-                        carDone[carControllerindex] = true;
-                    }
-                    else if (currentCarController.IsDone() && carControllerindex == 0 && !carDone[carControllerindex])
-                        carDone[carControllerindex] = true;
-
-
-                    stopCurRace = false;
+                    carDone[carControllerindex] = true;
                 }
+                else if (cars[carControllerindex].IsDone() && carControllerindex == 0 && !carDone[carControllerindex])
+                    carDone[carControllerindex] = true;
 
+                if (carDone[carControllerindex])
+                    continue;
 
+                stopCurRace = false;
+                
 
-                // If a camera is following a car update its transform
-                CameraController.instance.UpdateTransform();
-
-                // If simulating to fast a pause is set up here
-                Coroutine limitRoutine = StartCoroutine(LimitPlaybackSpeed());
-
-                if (limitRoutine != null)
-                    yield return limitRoutine;
             }
 
-            if (stopCurRace || MyThreadPool.GetWaitingThreads() == MyThreadPool.workers.Length)
+            countSinceFrame++;
+
+
+            // If a camera is following a car update its transform
+            CameraController.instance.UpdateTransform();
+
+            // If simulating to fast a pause is set up here
+            Coroutine limitRoutine = StartCoroutine(LimitPlaybackSpeed());
+
+
+            if (stopCurRace /*|| MyThreadPool.GetWaitingThreads() == MyThreadPool.workers.Length*/ )
             {
-                curDone = true;
+                lock (curDoneLocker)
+                    curDone = true;
 
                 while (MyThreadPool.GetWaitingThreads() != MyThreadPool.workers.Length)
                 {
                     yield return null;
                 }
 
-                yield break;
+                break;
             }
 
+            if (limitRoutine != null)
+                yield return limitRoutine;
         }
-        curDone = true;
 
         while (MyThreadPool.GetWaitingThreads() != MyThreadPool.workers.Length)
         {
             yield return null;
         }
-
     }
-    
+
     void ThreadedRace(object args)
     {
         float raceTime = (int)args;
         CarController car;
         int carIndex = 0;
-
+        int counter = 0;
         object frameLocker = new object();
-
         while (true)
         {
-            
+            bool stop;
+
+            lock (curDoneLocker)
+                stop = curDone;
+
             lock (carLocker)
             {
+                lock(counterLocker)
+                    counter++;
+
                 if (currentCar < cars.Count - 1)
                 {
                     currentCar++;
@@ -517,25 +554,65 @@ public class RaceManager : MonoBehaviour
                 {
                     currentCar = 0;
                 }
-                car = cars[currentCar];
                 carIndex = currentCar;
+                car = cars[currentCar];
             }
-            
+            if (MyThreadPool.abort || stop || counter > 10000)
+            {
+                break;
+            }
+
 
             lock (carsLocker[carIndex])
             {
+                if (!car.GetActive())
+                    continue;
 
-                if (MyThreadPool.abort || curDone)
+                lock (counterLocker)
+                    counter = 0;
+
+                if (MyThreadPool.abort || stop)
                 {
                     break;
                 }
 
-                if (!car.isActive)
-                    continue;
+                lock (threadCounterLocker)
+                    threadCounter = 0;
 
-                // Update the car to its next position.
-                if (!car.UpdateCar(1f / GA_Parameters.fps, !GA_Parameters.stopAtCrash, raceTime))
-                    car.isActive = false;
+                int frames;
+
+                if (canChangeFrames)
+                    frames = (int)(raceTime * GA_Parameters.fps) + 1;
+                else
+                    frames = 1;
+
+
+                for (int i = 0; i < frames; i++)
+                {
+                    if (MyThreadPool.abort || stop)
+                    {
+                        break;
+                    }
+
+                    if (!canChangeFrames)
+                    {
+                        // Update the car to its next position.
+                        if (!car.UpdateCar(1f / GA_Parameters.fps, !GA_Parameters.stopAtCrash, raceTime, false))
+                        {
+                            car.SetActive(false);
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // Update the car to its next position.
+                        if (!car.UpdateCar(1f / GA_Parameters.fps, !GA_Parameters.stopAtCrash, raceTime, true))
+                        {
+                            car.SetActive(false);
+                            break;
+                        }
+                    }
+                }
             }
             
         }
@@ -555,18 +632,18 @@ public class RaceManager : MonoBehaviour
     // Method that resets all race parameters
     void ResetRaceParameters()
     {
+        threadCounter = 0;
         realTimePassed = 0;
         startTime = Time.realtimeSinceStartup;
         realTimePassed = Time.realtimeSinceStartup;
         curTime = Time.realtimeSinceStartup;
         ingameTimePassed = 0;
-        curSpeed = 0;
         countSinceFrame = 0;
         buildupTime = 0;
         currentTrackNum = 0;
-        currentCar = 0;
+        finished = false;
 
-        lock(frameLocker)
+        lock (frameLocker)
             currentFrame = 0;
 
         curDone = false;
@@ -590,7 +667,12 @@ public class RaceManager : MonoBehaviour
         // Check whether the simulation is going to fast, if so wait as long as needed for the desired simulation speed
         if ((ingameTimePassed + buildupTime) / GA_Parameters.updateRate - realTimePassed > 0)
         {
-            yield return new WaitForSeconds((ingameTimePassed + buildupTime) / GA_Parameters.updateRate - realTimePassed);
+            float waitTime = (ingameTimePassed + buildupTime) / GA_Parameters.updateRate - realTimePassed;
+
+            if (waitTime > 1)
+                waitTime = 1;
+
+            yield return new WaitForSeconds(waitTime);
 
             // Simulation is going as fast as set so set the curSpeed to the desired speed
             curSpeed = GA_Parameters.updateRate;
@@ -611,6 +693,16 @@ public class RaceManager : MonoBehaviour
 
     }
 
+    public void Pause()
+    {
+        pause = true;
+    }
+
+    public void UnPause()
+    {
+        pause = false;
+    }
+
     public void SetUpdateRate(float updateRate, bool watch)
     {
         if (GA_Parameters.updateRate == 0)
@@ -626,7 +718,7 @@ public class RaceManager : MonoBehaviour
 
     public float GetTimeLeft()
     {
-        return GA_Parameters.simulationTime - ingameTimePassed;
+        return Mathf.Max(GA_Parameters.simulationTime - ingameTimePassed, 0);
     }
 
     public float GetTotalTime()
@@ -636,7 +728,7 @@ public class RaceManager : MonoBehaviour
 
     public float GetCurSpeed()
     {
-        return curSpeed;
+        return Mathf.Min(curSpeed, GA_Parameters.updateRate);
     }
 
     public void SetViewSettings(ViewType view, bool updateNow)
@@ -655,5 +747,13 @@ public class RaceManager : MonoBehaviour
                 currentCars.Add(cars[i]);
 
         return currentCars;
+    }
+
+    public void ClearTrails()
+    {
+        for(int i = 0; i < cars.Count; i++)
+        {
+            cars[i].ClearTrail();
+        }
     }
 }

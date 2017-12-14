@@ -4,46 +4,41 @@ using UnityEngine;
 
 public class SceneryActivator : MonoBehaviour {
 
-    float[] cutoffRangesShort;
-    float[] cutoffRangesFar;
-    float[] cutoffRangesGrass;
+    public static float[] cutoffRangesShort = new float[6] { 30, 50, 100, 200, 300, 1000 };
+    public static float[] cutoffRangesFarnew = new  float[6] { 100, 200, 400, 600, 1000, 1000};
+    public static float[] cutoffRangesGrass = new float[6] { 10, 20, 40, 100, 200, 300 };
 
     MeshRenderer ren;
 
     public bool farObject;
     public bool grassObject;
 
+    public Camera cam;
+
     private void Start()
     {
-        cutoffRangesShort = new float[6] { 30, 50, 100, 200, 300, Mathf.Infinity };
-        cutoffRangesFar = new float[6] { 100, 200, 400, 600, 1000, Mathf.Infinity };
-        cutoffRangesGrass = new float[6] { 10, 20, 40, 100, 200, Mathf.Infinity };
         ren = GetComponent<MeshRenderer>();
+
     }
-    // Update is called once per frame
-    void Updates()
+
+    private void Update()
     {
-        int index = QualitySettings.GetQualityLevel();
-        if (!farObject && !grassObject)
-        {
-            if (Vector3.Distance(CameraController.instance.gameObject.transform.position, transform.position) > cutoffRangesShort[index])
+        if (grassObject)
+            if (Vector3.Distance(CameraController.instance.gameObject.transform.position, transform.position) > 100)
                 ren.enabled = false;
             else
                 ren.enabled = true;
-        }
-        else if(!grassObject)
-        {
-            if (Vector3.Distance(CameraController.instance.gameObject.transform.position, transform.position) > cutoffRangesFar[index])
+
+        else if (farObject)
+            if (Vector3.Distance(CameraController.instance.gameObject.transform.position, transform.position) > 400)
                 ren.enabled = false;
             else
                 ren.enabled = true;
-        }
+
         else
-        {
-            if (Vector3.Distance(CameraController.instance.gameObject.transform.position, transform.position) > cutoffRangesGrass[index])
+            if(Vector3.Distance(CameraController.instance.gameObject.transform.position, transform.position) > 200)
                 ren.enabled = false;
             else
                 ren.enabled = true;
-        }
-	}
+    }
 }

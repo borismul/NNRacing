@@ -27,6 +27,9 @@ public class LoadTrackManager : MonoBehaviour {
 
     Image enabledImage;
 
+    public Button deleteButton;
+    float height = 0;
+
     public void Awake()
     {
         instance = this;
@@ -35,6 +38,9 @@ public class LoadTrackManager : MonoBehaviour {
     // Use this for initialization
     void OnEnable ()
     {
+        height = 0;
+        deleteButton.onClick.AddListener(Delete);
+
         for (int i = 0; i < currentButtons.Count; i++)
             Destroy(currentButtons[i].gameObject);
 
@@ -48,8 +54,6 @@ public class LoadTrackManager : MonoBehaviour {
 
         DirectoryInfo info = new DirectoryInfo(Application.persistentDataPath + "/Tracks/");
         trackNames = info.GetFiles();
-
-        float height = 0;
 
         for(int i = 0; i < trackNames.Length; i++)
         {
@@ -71,30 +75,45 @@ public class LoadTrackManager : MonoBehaviour {
             GetComponent<RectTransform>().sizeDelta = new Vector2(GetComponent<RectTransform>().rect.width, height);
         }
 
-        GetComponentInParent<ScrollRect>().verticalScrollbar.value = 0;
+        GetComponentInParent<ScrollRect>().verticalScrollbar.value = 1;
 
     }
 
     void SelectButtonAction(string name, int buttonNum)
     {
-        Texture2D tex = SaveableObjects.LoadTrack(name).texture;
-        trackImage.enabled = true;
-        trackImage.sprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, -tex.width, -tex.height), new Vector2(0.5f, 0.5f), 100.0f);
-        selectedTrackNames.Add(name);
-
-        if (multiplePossible)
+        try
         {
-            currentButtons[buttonNum].onClick.RemoveAllListeners();
-            currentButtons[buttonNum].onClick.AddListener(delegate { DeselectAction(name, buttonNum); });
+            Texture2D tex = SaveableObjects.LoadTrack(name).texture;
+
+            
+            trackImage.enabled = true;
+
+            if(tex != null)
+                trackImage.sprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, -tex.width, -tex.height), new Vector2(0.5f, 0.5f), 100.0f);
+
+            if (multiplePossible)
+            {
+                currentButtons[buttonNum].onClick.RemoveAllListeners();
+                currentButtons[buttonNum].onClick.AddListener(delegate { DeselectAction(name, buttonNum); });
+            }
+
+            if (transform.childCount > 1)
+                currentButtons[buttonNum].transform.GetChild(1).GetComponent<Image>().enabled = true;
+
+            if (enabledImage != null && !multiplePossible)
+            {
+                enabledImage.enabled = false;
+                selectedTrackNames.Clear();
+            }
+
+            enabledImage = currentButtons[buttonNum].transform.GetChild(1).GetComponent<Image>();
+            selectedTrackNames.Add(name);
         }
-
-        if(transform.childCount > 1)
+        catch (System.Exception)
+        {
+            selectedTrackNames.Add(name);
             currentButtons[buttonNum].transform.GetChild(1).GetComponent<Image>().enabled = true;
-
-        if (enabledImage != null && !multiplePossible)
-            enabledImage.enabled = false;
-
-        enabledImage = currentButtons[buttonNum].transform.GetChild(1).GetComponent<Image>();
+        }
     }
 
     void DeselectAction(string name, int buttonNum)
@@ -109,13 +128,38 @@ public class LoadTrackManager : MonoBehaviour {
         currentButtons[buttonNum].transform.GetChild(1).GetComponent<Image>().enabled = false;
 
         selectedTrackNames.Remove(name);
-
     }
 
     public void Error(string error)
     {
         loadPanelText.color = Color.red;
         loadPanelText.text = error;
+    }
+
+    void Delete()
+    {
+        for(int i = 0; i < selectedTrackNames.Count; i++)
+        {
+            File.Delete(Application.persistentDataPath + "/Tracks/" + selectedTrackNames[i] + ".trk");
+
+            for(int j = 0; j < currentButtons.Count; j++)
+            {
+                if (currentButtons[j] == null)
+                    continue;
+
+                if (currentButtons[j].GetComponentInChildren<Text>().text == selectedTrackNames[i])
+                {
+                    height -= currentButtons[j].GetComponent<RectTransform>().rect.height;
+                    Destroy(currentButtons[j].gameObject);
+                    currentButtons.RemoveAt(j);
+                }
+            }
+
+        }
+
+        selectedTrackNames.Clear();
+
+        GetComponent<RectTransform>().sizeDelta = new Vector2(GetComponent<RectTransform>().rect.width, height);
     }
 
 }
