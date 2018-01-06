@@ -29,7 +29,7 @@ public class Species
 
     public void AddMember(Genome genome)
     {
-        if(genome.GetFitness() > bestFitness)
+        if(leader == null || genome.GetFitness() > leader.GetFitness())
         {
             bestFitness = genome.GetFitness();
             generationsNoImprovement = 0;

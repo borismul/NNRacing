@@ -54,24 +54,6 @@ public class CarTrackController : MonoBehaviour {
         int startPoint = pointNum;
         float totDistance = 0;
 
-        for (int i = 1; i < 2; i++)
-        {
-            if (startPoint - i < 0 || startPoint - i + 2 >= track.trackPoints.Count)
-                break;
-
-            if (CheckDistance(carPosition, track.trackPoints[startPoint - i]) < CheckDistance(carPosition, track.trackPoints[startPoint - i + 1]) && CheckDistance(carPosition, track.trackPoints[startPoint - i + 2]) > CheckDistance(carPosition, track.trackPoints[startPoint - i]))
-            {
-                totDistance -= currentPoint.distance;
-                track.trackPoints[startPoint - i].isDone = false;
-                nextPoint = track.trackPoints[startPoint - i + 1];
-                currentPoint = track.trackPoints[startPoint - i];
-                pointNum--;
-                startPoint = pointNum;
-
-            }
-
-        }
-
         for (int i = 0; i < 50; i++)
         {
             if (startPoint + i == track.trackPoints.Count)
@@ -88,7 +70,7 @@ public class CarTrackController : MonoBehaviour {
 
                 for (int j = 0; j <= i; j++)
                 {
-                    if (track.trackPoints[startPoint + j].isDone)
+                    if (startPoint + j >= track.trackPoints.Count || track.trackPoints[startPoint + j].isDone)
                         continue;
 
                     if (!(tracker.laps == 0 && j + startPoint == 0))
@@ -96,17 +78,41 @@ public class CarTrackController : MonoBehaviour {
 
                     currentPoint = nextPoint;
                     nextPoint = track.trackPoints[pointNum];
+                    totDistance += track.trackPoints[startPoint + j].distance;
                     pointNum++;
+
                     if (pointNum == track.trackPoints.Count)
                     {
                         tracker.laps++;
+
+                        if (tracker.laps == GA_Parameters.laps)
+                            break;
+
                         Reset();
-                        startPoint = pointNum;
                     }
 
-                    totDistance += track.trackPoints[startPoint + j].distance;
                 }
             }
+        }
+
+        startPoint = pointNum;
+
+        for (int i = 1; i < 2; i++)
+        {
+            if (startPoint - i < 0 || startPoint - i + 2 >= track.trackPoints.Count)
+                break;
+
+            if (CheckDistance(carPosition, track.trackPoints[startPoint - i]) < CheckDistance(carPosition, track.trackPoints[startPoint - i + 1]) && CheckDistance(carPosition, track.trackPoints[startPoint - i + 2]) > CheckDistance(carPosition, track.trackPoints[startPoint - i]))
+            {
+                totDistance -= track.trackPoints[startPoint - i].distance;
+                track.trackPoints[startPoint - i].isDone = false;
+                nextPoint = track.trackPoints[startPoint - i + 1];
+                currentPoint = track.trackPoints[startPoint - i];
+                pointNum--;
+                startPoint = pointNum;
+
+            }
+
         }
 
         startPoint = pointNum;

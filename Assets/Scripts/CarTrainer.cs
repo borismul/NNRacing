@@ -66,7 +66,10 @@ public class CarTrainer : MonoBehaviour
     {
         // Create the initial neural networks
         generationNetworks = ga.CreateNetworks();
+        raceManager.Reset();
 
+        FitnessTracker.totLength = 0;
+        TrackManager.trackManager.SetTotalLength();
         // Training loop. Keep the training running as long as desired.
         while (true)
         {
@@ -86,7 +89,7 @@ public class CarTrainer : MonoBehaviour
 
             // Get the fitnesses of the networks and calculate the sum of all fitnesses
             fitnesses = raceManager.GetFitnesses();
-
+            bestFitnessSoFar = 0;
             for (int i = 0; i < fitnesses.Count; i++)
             {
                 if (fitnesses[i] > bestFitnessSoFar)

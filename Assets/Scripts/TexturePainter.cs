@@ -75,14 +75,14 @@ public class TexturePainter : MonoBehaviour {
 
         if (lastRay.origin != Vector3.zero && (Physics.Raycast(rayNow, Mathf.Infinity)))
         {
-            float lastDist = 50;
+            float lastDist = 50*30;
 
             while (true)
             {
                 if(rays.Count == 0)
-                    rays.Add(new Ray(lastRay.origin + originalDist.normalized * ( 10f/textureWidth), rayNow.direction));
+                    rays.Add(new Ray(lastRay.origin + originalDist.normalized * ( 300f/textureWidth), rayNow.direction));
                 else
-                    rays.Add(new Ray(rays[rays.Count - 1].origin + originalDist.normalized * ( 10f/textureWidth), rayNow.direction));
+                    rays.Add(new Ray(rays[rays.Count - 1].origin + originalDist.normalized * ( 300f/textureWidth), rayNow.direction));
 
                 if (Vector3.Distance(rays[rays.Count - 1].origin, rayNow.origin) > lastDist || lastDist < 0.00001f)
                 {
@@ -130,12 +130,12 @@ public class TexturePainter : MonoBehaviour {
 
                 if (hitPixels.Count == 0 || Vector2.Distance(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight), hitPixels[hitPixels.Count -1]) > 2)
                 {
-                    trackpoints.Add(hit.point * 30);
+                    trackpoints.Add(hit.point);
                     hitPixels.Add(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight));
                 }
-                if(!drawnFinish && Vector3.Distance(trackpoints[0], hit.point * 30) < 5 && trackpoints.Count > 5)
+                if(!drawnFinish && Vector3.Distance(trackpoints[0], hit.point) < 5 && trackpoints.Count > 5)
                 {
-                    trackpoints.Add(hit.point * 30);
+                    trackpoints.Add(hit.point);
                     hitPixels.Add(new Vector2(hit.textureCoord.x * textureWidth, hit.textureCoord.y * textureHeight));
 
                     Vector2 pixel1 = hitPixels[hitPixels.Count - 3];

@@ -24,6 +24,9 @@ public class EditorUIController : MonoBehaviour
     public GameObject optionsPanel;
     public GameObject savePanel;
     public GameObject loadPanel;
+    public GameObject testingPanel;
+
+    public Text testingText;
 
     public Text saveTitleText;
 
@@ -33,6 +36,8 @@ public class EditorUIController : MonoBehaviour
 	// Use this for initialization
 	void Start ()
     {
+        MyThreadPool.StartThreadPool(6);
+
         painter = TexturePainter.instance;
         painter.brushSize = 15;
 
@@ -94,31 +99,47 @@ public class EditorUIController : MonoBehaviour
 
     void SaveTrack()
     {
-        string name = saveNameInput.text;
-        try
-        {
-            if (TrackManager.trackManager.SaveTrack(name))
-                SaveBack();
-            else
-            {
-                saveTitleText.color = Color.red;
-                saveTitleText.text = "Enter a correct name!";
-            }
+        StartCoroutine(_SaveTrack());
+    }
 
-        }
-        catch (System.Exception e)
+    IEnumerator _SaveTrack()
+    {
+        string name = saveNameInput.text;
+        savePanel.SetActive(false);
+        TestingPanel();
+        yield return StartCoroutine(TrackManager.trackManager.SaveTrack(name));
+
+        if (TrackManager.trackManager.succes)
         {
-            print(e);
-            saveTitleText.color = Color.red;
-            saveTitleText.text = "Enter a correct name!";
+            testingText.color = Color.green;
+            testingText.text = "Test Succeeded, track saved";
         }
+        else
+        {
+            testingText.color = Color.red;
+            testingText.text = "Test failed! track not saved";
+        }
+
+        SaveBack();
+
+
+        yield return new WaitForSeconds(3);
+        testingPanel.SetActive(false);
+
+
+    }
+
+    void TestingPanel()
+    {
+        testingPanel.SetActive(true);
+        testingText.color = Color.yellow;
+        testingText.text = "Testing...";
     }
 
     void SaveBack()
     {
         mainOptionsButton.gameObject.SetActive(true);
         optionsPanel.SetActive(true);
-
         savePanel.SetActive(false);
 
         painter.inMenu = false;
@@ -152,6 +173,14 @@ public class EditorUIController : MonoBehaviour
 
     }
 
+    private void OnDestroy()
+    {
+        MyThreadPool.DestroyThreadPool();
+    }
 
+    private void OnApplicationQuit()
+    {
+        MyThreadPool.DestroyThreadPool();
+    }
 
 }
