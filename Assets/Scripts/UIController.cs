@@ -499,6 +499,7 @@ public class UIController : MonoBehaviour
 
         for (int i = 0; i < activeNetworks.Count; i++)
         {
+            activeNetworks[i].Reset();
             raceManager.AddAIPlayer(i.ToString(), activeNetworks[i]);
         }
     }

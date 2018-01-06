@@ -15,6 +15,8 @@ public class FitnessTracker : MonoBehaviour
     public int laps;
     public int totalLaps;
     public float TotalLapDistance;
+    public int finished;
+    public static float totLength;
 
     public static List<string> keys;
 
@@ -42,17 +44,22 @@ public class FitnessTracker : MonoBehaviour
 
         if ((laps > 0 && !trackManager.track.hasLaps) || laps == GA_Parameters.laps)
         {
-
+            finished++;
             carController.SetFinished();
             distance = discreteDistance;
             return false;
 
         }
 
-        if (trackManager.CheckDistance(position, true) > 20)
+        if (trackManager.CheckDistance(position, true) > 10)
         {
             if (!stopAtCrash)
-                carController.Reset(true, true);
+            {
+                if(carController.threaded)
+                    carController.ThreadReset(true, true);
+                else
+                    carController.Reset(true, true);
+            }
             else
             {
                 return false;
@@ -74,12 +81,28 @@ public class FitnessTracker : MonoBehaviour
             else if (keys[i] == "c")
                 inputs.Add(crashes);
             else if (keys[i] == "l")
-                inputs.Add(laps);
+            {
+                inputs.Add(GA_Parameters.laps);
+            }
             else if (keys[i] == "L")
-                inputs.Add(trackManager.track.length);
+                inputs.Add(totLength);
+            else if (keys[i] == "f")
+            {
+                double val;
+                if (finished == LoadTrackManager.instance.selectedTrackNames.Count)
+                    val = 1;
+                else
+                    val = 0;
+
+                inputs.Add(val);
+
+            }
+            else if (keys[i] == "Vmax")
+                inputs.Add(GA_Parameters.maxSpeed);
+            else if (keys[i] == "n")
+                inputs.Add(LoadTrackManager.instance.selectedTrackNames.Count);
 
         }
-
         return inputs.ToArray();
     }
 
@@ -98,8 +121,11 @@ public class FitnessTracker : MonoBehaviour
         crashes++;
     }
 
-    public void Reset()
+    public void Reset(bool resetOnTrack, bool completeReset)
     {
+        if (resetOnTrack)
+            return;
+
         discreteDistance = 0;
         distance = 0;
         time = 0;
@@ -108,7 +134,10 @@ public class FitnessTracker : MonoBehaviour
         TotalLapDistance = 0;
         laps = 0;
         crashes = 0;
-        
+        if (completeReset)
+        {
+            finished = 0;
+        }
     }
 
     public float GetFinishTime()
@@ -117,6 +146,11 @@ public class FitnessTracker : MonoBehaviour
             return time;
         else
             return -1;
+    }
+
+    public static void AddTrackLength()
+    {
+        totLength += TrackManager.trackManager.track.length;
     }
 
 }

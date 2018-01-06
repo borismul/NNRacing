@@ -738,8 +738,8 @@ public class MainMenuController : MonoBehaviour
             return;
 
         float par = float.Parse(text);
-        if (par < 1)
-            par = 1;
+        if (par < 0)
+            par = 0;
         GA_Parameters.simulationTime = par;
         simulationTimeAdvanced.text = simulationTimeSimple.text;
 
@@ -853,8 +853,8 @@ public class MainMenuController : MonoBehaviour
             return;
 
         float par = float.Parse(text);
-        if (par < 1)
-            par = 1;
+        if (par < 0)
+            par = 0;
         GA_Parameters.simulationTime = par;
         simulationTimeSimple.text = simulationTimeAdvanced.text;
 
@@ -1392,7 +1392,7 @@ public class MainMenuController : MonoBehaviour
             }
             return false;
         }
-        List<string> expectedKeys = new List<string>() { "x", "t", "c", "l", "L" };
+        List<string> expectedKeys = new List<string>() { "x", "t", "c", "l", "L", "f", "Vmax", "n" };
         FitnessTracker.keys = new List<string>();
         foreach (string key in exp.Parameters.Keys)
         {

@@ -68,12 +68,27 @@ public class RaceManager : MonoBehaviour
     public bool runRace;
     bool finished = true;
 
+    float simulationTime;
+
     void Awake()
     {
         raceManager = this;
     }
 
     void Start()
+    {
+        cameraController = CameraController.instance;
+        carsLocker = new object[GA_Parameters.populationSize];
+        carDone = new bool[GA_Parameters.populationSize];
+
+        for (int i = 0; i < carsLocker.Length; i++)
+        {
+            carsLocker[i] = new object();
+            carDone[i] = false;
+        }
+    }
+
+    public void Reset()
     {
         cameraController = CameraController.instance;
 
@@ -118,7 +133,8 @@ public class RaceManager : MonoBehaviour
                     currentCars.Add(cars[i]);
             }
 
-            posManager.CreatePositionList(currentCars);
+            if(posManager!= null)
+                posManager.CreatePositionList(currentCars);
             finished = true;
         }
     }
@@ -172,6 +188,9 @@ public class RaceManager : MonoBehaviour
     {
         for (int i = 0; i < tracks.Count; i++)
         {
+            training = true;
+            runRace = false;
+
             System.GC.Collect();
             UIController.instance.UpdateUI(i, tracks.Count);
 
@@ -219,6 +238,36 @@ public class RaceManager : MonoBehaviour
         }
     }
 
+    public IEnumerator TestTrack()
+    {
+        ResetPlayers();
+
+        Genome genome = SaveableObjects.SaveableNeuralNetwork.LoadNetwork("Best Overall ");
+        aiPlayers.Add(new AIPlayer("Tester", genome.CreateNetwork()));
+        carsLocker = new object[1];
+        carsLocker[0] = new object();
+
+        CreateCars(true);
+        AddPlayers();
+        SetCarsReady(true, true);
+
+        ResetRaceParameters();
+        CreateThreadActions((500));
+
+        GA_Parameters.fps = 60;
+        GA_Parameters.laps = 3;
+        GA_Parameters.stopAtCrash = false;
+
+        while (MyThreadPool.GetWaitingThreads() != MyThreadPool.workers.Length || cars[0].positions.Count > 0)
+        {
+            for(int i = 0; i < 40; i++)
+                cars[0].UpdateCar();
+
+            yield return null;
+        }
+
+    }
+
     void CreateTrack()
     {
         if (currentTrackObj != null)
@@ -233,7 +282,8 @@ public class RaceManager : MonoBehaviour
         {
             for (int i = 0; i < cars.Count; i++)
             {
-                Destroy(cars[i].gameObject);
+                if(cars[i] != null)
+                    Destroy(cars[i].gameObject);
             }
 
             cars.Clear();
@@ -312,7 +362,7 @@ public class RaceManager : MonoBehaviour
             }
         }
     }
-
+    
     void AdjustViewSettings()
     {
         if (curViewType == ViewType.MenuView)
@@ -382,7 +432,7 @@ public class RaceManager : MonoBehaviour
                 continue;
 
             // Update the car to its next position.
-            if (!currentCarController.UpdateCar(deltaTime, true, Mathf.Infinity, false))
+            if (!currentCarController.UpdateCar(deltaTime, true, Mathf.Infinity))
             {
                 continue;
             }
@@ -405,7 +455,6 @@ public class RaceManager : MonoBehaviour
 
     IEnumerator ThreadedRace(bool forceCompleteRace)
     {
-        int extraTime = 0;
 
         if (forceCompleteRace)
         {
@@ -420,10 +469,18 @@ public class RaceManager : MonoBehaviour
             yield return routine;
 
         }
-
         ResetRaceParameters();
-        CreateThreadActions((int)(GA_Parameters.simulationTime + extraTime));
+        if (GA_Parameters.simulationTime != 0)
+        {
+            simulationTime = GA_Parameters.simulationTime;
+            CreateThreadActions((int)(simulationTime));
+        }
+        else
+        {
+            simulationTime = TrackManager.trackManager.GetTrack().raceTime;
+            CreateThreadActions((int)(simulationTime));
 
+        }
         while (true)
         {
 
@@ -521,8 +578,9 @@ public class RaceManager : MonoBehaviour
                 yield return limitRoutine;
         }
 
-        while (MyThreadPool.GetWaitingThreads() != MyThreadPool.workers.Length)
+        while (MyThreadPool.GetWaitingThreads() != MyThreadPool.workers.Length )
         {
+            
             yield return null;
         }
     }
@@ -534,6 +592,7 @@ public class RaceManager : MonoBehaviour
         int carIndex = 0;
         int counter = 0;
         object frameLocker = new object();
+
         while (true)
         {
             bool stop;
@@ -586,33 +645,17 @@ public class RaceManager : MonoBehaviour
                 else
                     frames = 1;
 
-
-                for (int i = 0; i < frames; i++)
+                if (MyThreadPool.abort || stop)
                 {
-                    if (MyThreadPool.abort || stop)
-                    {
-                        break;
-                    }
-
-                    if (!canChangeFrames)
-                    {
-                        // Update the car to its next position.
-                        if (!car.UpdateCar(1f / GA_Parameters.fps, !GA_Parameters.stopAtCrash, raceTime, false))
-                        {
-                            car.SetActive(false);
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        // Update the car to its next position.
-                        if (!car.UpdateCar(1f / GA_Parameters.fps, !GA_Parameters.stopAtCrash, raceTime, true))
-                        {
-                            car.SetActive(false);
-                            break;
-                        }
-                    }
+                    break;
                 }
+   
+                // Update the car to its next position.
+                if (!car.UpdateCar(1f / GA_Parameters.fps, !GA_Parameters.stopAtCrash, raceTime))
+                {
+                    car.SetActive(false);
+                }
+
             }
             
         }
@@ -718,7 +761,7 @@ public class RaceManager : MonoBehaviour
 
     public float GetTimeLeft()
     {
-        return Mathf.Max(GA_Parameters.simulationTime - ingameTimePassed, 0);
+        return Mathf.Max(simulationTime - ingameTimePassed, 0);
     }
 
     public float GetTotalTime()

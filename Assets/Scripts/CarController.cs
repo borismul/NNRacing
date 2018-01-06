@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
 using System.Threading;
+using System;
 
 public class CarController : MonoBehaviour
 {
@@ -65,7 +66,7 @@ public class CarController : MonoBehaviour
 
     // Stuff that is needed to see how well a car did after finishing
     public bool finished;
-    float totalTime;
+    public float totalTime;
     float finishedPosition;
 
 
@@ -95,6 +96,8 @@ public class CarController : MonoBehaviour
     public float totalFitness;
 
     public bool followCar;
+
+    System.Random random = new System.Random();
 
     void Awake()
     {
@@ -152,7 +155,7 @@ public class CarController : MonoBehaviour
 
     // Method that updates the car postition and fitness. If a something happens that should stop the simulation,
     // false is returned, else true.
-    public bool UpdateCar(float deltaTime, bool doNotStopAtCrash, float maxTime, bool onlyLastPos)
+    public bool UpdateCar(float deltaTime, bool doNotStopAtCrash, float maxTime)
     {
         if (!threaded && GetPosition() == 1)
             leader = this;
@@ -161,7 +164,6 @@ public class CarController : MonoBehaviour
 
         if (totalTime > maxTime)
             return false;
-
         // If the current neural network is misformed stop simulation
         if (aIPlayer != null && !CalculateNetworkOutput() && !doNotStopAtCrash)
             return false;
@@ -170,7 +172,7 @@ public class CarController : MonoBehaviour
             GetInputs();
 
         // Move the car
-        Move(deltaTime, onlyLastPos);
+        Move(deltaTime);
 
         // If the car has a collision
         if (OnGrass() == 4 || ((velocity.x == 0 && velocity.z == 0) && aIPlayer != null))
@@ -186,8 +188,20 @@ public class CarController : MonoBehaviour
             }
 
             // Else reset the car and add a crash to the fitnessTracker
-            Reset(true, true);
-            fitnessTracker.AddCrash();
+            if (!threaded)
+            {
+                Reset(true, true);
+                fitnessTracker.AddCrash();
+
+            }
+            else
+            {
+                ThreadReset(true, true);
+                fitnessTracker.AddCrash();
+
+                if (fitnessTracker.crashes > 10)
+                    return false;
+            }
         }
 
         // Update the fitness tracker, checks if the number of laps has been completed and if so, stops the simulation
@@ -201,16 +215,16 @@ public class CarController : MonoBehaviour
     }
 
     // Method that moves and rotates the car to its new position
-    void Move(float deltaTime, bool onlyLastPos)
+    void Move(float deltaTime)
     {
         // Acceleration caused by forces
-        float engine = acc;
+        float acceleration = acc;
         float airDrag = (velocity.magnitude * velocity.magnitude) * (accSpeed - 3) / (maxSpeed * maxSpeed);
         float wheelDrag = 3;
         float grassDrag = OnGrass() * .05f * (velocity.magnitude * velocity.magnitude);
 
         // Determine an accelation vector
-        accVector = (engine - airDrag - wheelDrag - grassDrag) * (rotation * Vector3.forward);
+        accVector = (acceleration - airDrag - wheelDrag - grassDrag) * (rotation * Vector3.forward);
 
         Vector3 velocity_ip1 = velocity + accVector * deltaTime;
         Vector3 velocity_ip2 = velocity_ip1 + accVector * deltaTime;
@@ -255,33 +269,12 @@ public class CarController : MonoBehaviour
         position += velocity * deltaTime;
         rotation = rot;
 
-        if (onlyLastPos)
-        {
-            lock (positionsLock)
-            {
-                lock (rotationsLock)
-                {
-                    if (positions.Count == 0)
-                    {
-                        positions.Add(position);
-                        rotations.Add(rotation);
-                    }
-                    else
-                    {
-                        positions[0] = position;
-                        rotations[0] = rotation;
-                    }
-                }
-            }
-        }
-        else
-        {
-            lock (positionsLock)
-                positions.Add(position);
+        lock (positionsLock)
+            positions.Add(position);
 
-            lock (rotationsLock)
-                rotations.Add(rotation);
-        }
+        lock (rotationsLock)
+            rotations.Add(rotation);
+        
         // Store the current rotation angle
         prevRotAngle = curRotAngle;
     }
@@ -383,11 +376,11 @@ public class CarController : MonoBehaviour
             curdist = TrackManager.WallDistance(position, rotation, angle * Mathf.Rad2Deg);
 
             // Add as input
-            input.Add(((curdist - 10) / 25));
+            input.Add(((curdist - 10) / 25) + (float)SampleGaussian(0, 1.0 / 9));
         }
 
         // add the velocity as input
-        input.Add((velocity.magnitude - 15) / 5);
+        input.Add((velocity.magnitude - 15) / 5 + (float)SampleGaussian(0, 1.0 / 12));
     }
 
     // Get the output of the neural network and set it to the inputs for the cars
@@ -440,7 +433,6 @@ public class CarController : MonoBehaviour
             jitterPenalty += 0.5f;
 
         turn = newTurn;
-
         if (jitterPenalty > 2f)
             return false;
 
@@ -456,25 +448,16 @@ public class CarController : MonoBehaviour
     }
 
     // Method that resets the car to the start of the track (used by a thread)
-    public void ThreadReset(bool softReset)
+    public void ThreadReset(bool softReset, bool crashReset)
     {
-        lock (positionsLock)
-        {
-            if(!softReset)
-                positions.Clear();
+        if (!crashReset)
+            fitnessTracker.Reset(crashReset, !softReset);
 
-            positions.Add(trackManager.CurrentPosition());
-        }
-        lock (rotationsLock)
-        {
-            if(!softReset)
-                rotations.Clear();
+        position = trackManager.CurrentPosition();
+        rotation = trackManager.CurrentRotation();
 
-            rotations.Add(trackManager.CurrentRotation());
-        }
-
-        curRotAngle = rotations[0].eulerAngles.y;
-        prevRotAngle = rotations[0].eulerAngles.y;
+        curRotAngle = rotation.eulerAngles.y;
+        prevRotAngle = rotation.eulerAngles.y;
 
         velocity = Vector3.zero;
         acc = 0;
@@ -483,15 +466,21 @@ public class CarController : MonoBehaviour
 
         finished = false;
         jitterPenalty = 0;
+        if (!crashReset)
+            totalTime = 0;
 
-        trailren.Clear();
-        
+        if (!softReset)
+        {
+            totalFitness = 0;
+        }
+
     }
 
     // Method that resets the car to the start of the track (used by the main unity thread)
     public void Reset(bool softReset, bool crashReset)
     {
-        fitnessTracker.Reset();
+        if(!crashReset)
+            fitnessTracker.Reset(crashReset, !softReset);
 
         transform.position = trackManager.CurrentPosition();
         transform.rotation = trackManager.CurrentRotation();
@@ -669,5 +658,17 @@ public class CarController : MonoBehaviour
     public void EvalTotalFitness()
     {
         totalFitness += fitnessTracker.GetFitness();
+    }
+
+    public double SampleGaussian(double mean, double stddev)
+    {
+        
+        // The method requires sampling from a uniform random of (0,1]
+        // but Random.NextDouble() returns a sample of [0,1).
+        double x1 = 1 - random.NextDouble();
+        double x2 = 1 - random.NextDouble();
+
+        double y1 = Math.Sqrt(-2.0 * Math.Log(x1)) * Math.Cos(2.0 * Math.PI * x2);
+        return y1 * stddev + mean;
     }
 }

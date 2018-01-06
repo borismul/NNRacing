@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 public class TrackManager : MonoBehaviour
@@ -19,7 +20,7 @@ public class TrackManager : MonoBehaviour
 
     public string trackName;
 
-    Track track;
+    public Track track;
 
     int iPixels;
     int jPixels;
@@ -38,28 +39,47 @@ public class TrackManager : MonoBehaviour
 
     Texture2D curTex;
 
+    public bool succes;
+
     void Awake()
     {
         trackManager = this;
     }
 
-    void BuildTrack(bool fancy)
+    public void SetTotalLength()
     {
-        if (trackName == "")
+        for(int i = 0; i < LoadTrackManager.instance.selectedTrackNames.Count; i++)
+        {
+            trackName = LoadTrackManager.instance.selectedTrackNames[i];
+            LoadTrack(false);
+            FitnessTracker.AddTrackLength();
+        }
+    }
+
+    void BuildTrack(bool fancy, bool testTrack = false)
+    {
+        if (trackName == "" && !testTrack)
             return;
 
-        if (curTex != null)
+        if (curTex != null && ! testTrack)
             Destroy(curTex);
 
         RemoveFancyObjects();
 
-        track = SaveableObjects.LoadTrack(trackName);
-        curTex = track.texture;
+        if (!testTrack)
+        {
+            track = SaveableObjects.LoadTrack(trackName);
+            curTex = track.texture;
+        }
+        else
+        {
+            curTex = (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex");
+        }
 
         localScale.x = transform.localScale.x;
         localScale.y = transform.localScale.z;
 
-        GetComponent<Renderer>().material.SetTexture("_MainTex", track.texture);
+        GetComponent<Renderer>().material.SetTexture("_MainTex", curTex);
         Initialize();
         GetColors();
         CreateMap();
@@ -74,8 +94,8 @@ public class TrackManager : MonoBehaviour
     void Initialize()
     {
         // Get the number of pixels in the texture and their size
-        iPixels = track.texture.width;
-        jPixels = track.texture.height;
+        iPixels = curTex.width;
+        jPixels = curTex.height;
         pixelSize = new Vector2(transform.localScale.x * 10 / iPixels, transform.localScale.z * 10 / jPixels);
     }
 
@@ -89,7 +109,7 @@ public class TrackManager : MonoBehaviour
             colors.Add(new List<Color>());
             for (int j = 0; j < jPixels; j++)
             {
-                colors[i].Add(track.texture.GetPixel(i, j));
+                colors[i].Add(curTex.GetPixel(i, j));
             }
         }
     }
@@ -448,7 +468,6 @@ public class TrackManager : MonoBehaviour
         int y = -Mathf.RoundToInt((position.z - localScale.y * 10 + pixelSize.y / 2) / pixelSize.y);
 
         return new Vector2Int(x, y);
-
     }
 
     Texture2D AntiAlias(Texture2D tex, int aliasSize)
@@ -502,11 +521,25 @@ public class TrackManager : MonoBehaviour
         return newTex;
     }
 
-    public bool SaveTrack(string trackName)
+    public IEnumerator SaveTrack(string trackName)
     {
+        BuildTrack(false, true);
+        track = new Track(trackName, (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex"), TexturePainter.instance.trackpoints, 0);
+        yield return StartCoroutine(RaceManager.raceManager.TestTrack());
+        float time = RaceManager.raceManager.GetCurrentCompetingCars()[0].totalTime;
+        if (RaceManager.raceManager.GetCurrentCompetingCars()[0].GetFinishTime() != -1)
+            succes = true;
+        else
+        {
+            succes = false;
+            Destroy(RaceManager.raceManager.GetCurrentCompetingCars()[0].gameObject);
+
+            yield break;
+        }
+        Destroy(RaceManager.raceManager.GetCurrentCompetingCars()[0].gameObject);
         List<Vector3> trackPoints = new List<Vector3>();
-        track = new Track(trackName, (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex"), TexturePainter.instance.trackpoints);
-        return SaveableObjects.SaveTrack(track);
+        track = new Track(trackName, (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex"), TexturePainter.instance.trackpoints, time);
+        SaveableObjects.SaveTrack(track);
     }
 
     public bool LoadTrack(bool fancy)
@@ -520,11 +553,11 @@ public class TrackManager : MonoBehaviour
     public Track GetTrack()
     {
         List<Vector3> trackPointsCopy = new List<Vector3>();
-
+        
         for (int i = 0; i < track.trackPoints.Count; i++)
             trackPointsCopy.Add(track.trackPoints[i].position);
 
-        Track trackCopy = new Track(trackName, track.texture, trackPointsCopy);
+        Track trackCopy = new Track(trackName, track.texture, trackPointsCopy, track.raceTime);
 
         return trackCopy;
     }

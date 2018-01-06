@@ -42,7 +42,7 @@ public class TrackPoint
         int count = 0;
         for (int i = 0; i < trackPoints.Count; i++)
         {
-            if (i != 0)
+            if (i > 1)
             {
                 float distance = Vector3.Distance(trackPoints[i - 1], trackPoints[i]);
                 length += distance;
@@ -55,11 +55,12 @@ public class TrackPoint
                 else
                     realTrackPoints.Add(new TrackPoint(distance, trackPoints[i], false));
             }
-            else
+            else if(i < trackPoints.Count)
             {
                 count++;
-                realTrackPoints.Add(new TrackPoint(0, trackPoints[0], true));
+                realTrackPoints.Add(new TrackPoint(0, trackPoints[i], true));
             }
+
         }
 
         return realTrackPoints;

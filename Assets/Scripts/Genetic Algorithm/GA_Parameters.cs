@@ -49,10 +49,10 @@ public static class GA_Parameters {
     public static int outputs = 6;
 
     // Car Properies
-    public static float accSpeed;
-    public static float breakSpeed;
-    public static float turnSpeed;
-    public static float maxSpeed;
+    public static float accSpeed = 10;
+    public static float breakSpeed = 20;
+    public static float turnSpeed = 80;
+    public static float maxSpeed = 50;
 
     // Under The Hood Properties
     public static float updateRate = 0;

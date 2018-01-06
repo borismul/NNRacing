@@ -42,7 +42,6 @@ public class TestScript : MonoBehaviour
             network.DestroyNetwork();
             network = genome.CreateNetwork();
             network.VisualizeNetwork(panel.GetComponent<RectTransform>(), perceptron, link, loopLink, false);
-            print("done");
         }
     }
 }

@@ -14,12 +14,14 @@ public class SaveableObjects {
         public SerializableVector3[] trackPoints;
         public int texWidth;
         public int texHeight;
+        public float time;
 
-        public SaveableTrack(string name, Texture2D texture, List<TrackPoint> trackPoints)
+        public SaveableTrack(string name, Texture2D texture, List<TrackPoint> trackPoints, float time)
         {
             this.name = name;
             this.texture = texture.EncodeToPNG();
             this.trackPoints = new SerializableVector3[trackPoints.Count];
+            this.time = time;
             texWidth = texture.width;
             texHeight = texture.height;
 
@@ -35,7 +37,7 @@ public class SaveableObjects {
     {
         try
         {
-            SaveableTrack saveableTrack = new SaveableTrack(track.trackName, track.texture, track.trackPoints);
+            SaveableTrack saveableTrack = new SaveableTrack(track.trackName, track.texture, track.trackPoints, track.raceTime);
             BinaryFormatter bf = new BinaryFormatter();
             Directory.CreateDirectory(Application.persistentDataPath + "/Tracks/");
             FileStream file = File.Create(Application.persistentDataPath + "/Tracks/" + saveableTrack.name + ".trk");
@@ -68,7 +70,7 @@ public class SaveableObjects {
                 trackpoints.Add(saveableTrack.trackPoints[i].GetVector3());
             }
 
-            Track track = new Track(saveableTrack.name, tex, trackpoints);
+            Track track = new Track(saveableTrack.name, tex, trackpoints, saveableTrack.time);
             file.Close();
             return track;
 
