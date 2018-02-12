@@ -376,11 +376,11 @@ public class CarController : MonoBehaviour
             curdist = TrackManager.WallDistance(position, rotation, angle * Mathf.Rad2Deg);
 
             // Add as input
-            input.Add(((curdist - 10) / 25) + (float)SampleGaussian(0, 1.0 / 9));
+            input.Add(((curdist - 10) / 25)); /*+ (float)SampleGaussian(0, 1.0 / 9));*/
         }
 
         // add the velocity as input
-        input.Add((velocity.magnitude - 15) / 5 + (float)SampleGaussian(0, 1.0 / 12));
+        input.Add((velocity.magnitude - 15) / 5);
     }
 
     // Get the output of the neural network and set it to the inputs for the cars
