@@ -70,6 +70,8 @@ public class RaceManager : MonoBehaviour
 
     float simulationTime;
 
+    List<CarController> currentCars = new List<CarController>();
+
     void Awake()
     {
         raceManager = this;
@@ -102,7 +104,7 @@ public class RaceManager : MonoBehaviour
         }
     }
 
-    void Update()
+    void FixedUpdate()
     {
         if(!training)
             FinishRace();
@@ -110,7 +112,9 @@ public class RaceManager : MonoBehaviour
         if (!runRace || pause)
             return;
 
-        Race(Time.smoothDeltaTime);
+        Race(Time.fixedDeltaTime);
+        cameraController.UpdateTransform(Time.fixedDeltaTime);
+
     }
 
     private void LateUpdate()
@@ -118,7 +122,6 @@ public class RaceManager : MonoBehaviour
         if (!runRace || pause)
             return;
 
-        cameraController.UpdateTransform(Time.smoothDeltaTime);
     }
 
     void FinishRace()
@@ -783,7 +786,7 @@ public class RaceManager : MonoBehaviour
 
     public List<CarController> GetCurrentCompetingCars()
     {
-        List<CarController> currentCars = new List<CarController>();
+        currentCars.Clear();
 
         for (int i = 0; i < cars.Count; i++)
             if (cars[i].isActiveAndEnabled)

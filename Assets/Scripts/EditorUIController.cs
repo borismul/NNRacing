@@ -36,8 +36,6 @@ public class EditorUIController : MonoBehaviour
 	// Use this for initialization
 	void Start ()
     {
-        MyThreadPool.StartThreadPool(6);
-
         painter = TexturePainter.instance;
         painter.brushSize = 15;
 

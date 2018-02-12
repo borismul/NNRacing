@@ -41,7 +41,7 @@ public class CarTrainer : MonoBehaviour
 
     void Awake()
     {
-        Application.targetFrameRate = -1;
+        //Application.targetFrameRate = 60;
         Application.runInBackground = true;
         instance = this;
     }
