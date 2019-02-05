@@ -97,34 +97,24 @@ public class EditorUIController : MonoBehaviour
 
     void SaveTrack()
     {
-        StartCoroutine(_SaveTrack());
-    }
-
-    IEnumerator _SaveTrack()
-    {
         string name = saveNameInput.text;
-        savePanel.SetActive(false);
-        TestingPanel();
-        yield return StartCoroutine(TrackManager.trackManager.SaveTrack(name));
-
-        if (TrackManager.trackManager.succes)
+        try
         {
-            testingText.color = Color.green;
-            testingText.text = "Test Succeeded, track saved";
+            if (TrackManager.trackManager.SaveTrack(name))
+                SaveBack();
+            else
+            {
+                saveTitleText.color = Color.red;
+                saveTitleText.text = "Enter a correct name!";
+            }
+
         }
-        else
+        catch (System.Exception e)
         {
-            testingText.color = Color.red;
-            testingText.text = "Test failed! track not saved";
+            print(e);
+            saveTitleText.color = Color.red;
+            saveTitleText.text = "Enter a correct name!";
         }
-
-        SaveBack();
-
-
-        yield return new WaitForSeconds(3);
-        testingPanel.SetActive(false);
-
-
     }
 
     void TestingPanel()

@@ -17,12 +17,12 @@ public class TestScript : MonoBehaviour
     // Use this for initialization
     void Start()
     {
-        genome = new Genome(0, 8, 4, new Genome.MutParameters());
-        network = genome.CreateNetwork();
+        //genome = new Genome(0, 8, 4, new Genome.MutParameters());
+        //network = genome.CreateNetwork();
 
-        network.VisualizeNetwork(panel.GetComponent<RectTransform>(), perceptron, link, loopLink, false);
+        //network.VisualizeNetwork(panel.GetComponent<RectTransform>(), perceptron, link, loopLink, false);
 
-        innovations = new Innovations(genome.GetConnectionGenes(), genome.GetPerceptronGenes());
+        //innovations = new Innovations(genome.GetConnectionGenes(), genome.GetPerceptronGenes());
     }
 
     // Update is called once per frame

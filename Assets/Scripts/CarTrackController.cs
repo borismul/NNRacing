@@ -151,6 +151,112 @@ public class CarTrackController : MonoBehaviour {
         return currentPoint.position;
     }
 
+    public Vector3 NextPosition(int pointsAhead)
+    {
+        if (pointNum - 1 + pointsAhead > track.trackPoints.Count - 1)
+            return track.trackPoints[pointNum - 1 + pointsAhead - track.trackPoints.Count].position;
+        else
+            return track.trackPoints[pointNum - 1 + pointsAhead].position;
+
+    }
+
+    public Quaternion NextRotation(int pointsAhead)
+    {
+        int currentPoint = pointNum - 1 + pointsAhead;
+        int nextPoint = currentPoint + 1;
+        Vector3 from;
+        Vector3 to;
+        if (currentPoint > track.trackPoints.Count - 1)
+            from = track.trackPoints[currentPoint - track.trackPoints.Count].position;
+        else
+            from = track.trackPoints[currentPoint].position;
+
+        if (nextPoint > track.trackPoints.Count - 1)
+            to = track.trackPoints[nextPoint - track.trackPoints.Count].position;
+        else
+            to = track.trackPoints[nextPoint].position;
+
+        return Quaternion.LookRotation(to - from);
+
+    }
+
+    public Vector3 NextPosition(Vector3 position, float distance)
+    {
+        float curDistance = CheckDistance(position, true);
+        position = NextPosition(2);
+        float prevDistance;
+        int pointsAhead = 3;
+        Vector3 nextPos = Vector3.zero;
+
+        while (curDistance < distance)
+        {
+            nextPos = NextPosition(pointsAhead);
+            prevDistance = curDistance;
+            curDistance += Vector3.Distance(nextPos, position);
+            position = nextPos;
+            pointsAhead++;
+        }
+
+        Vector3 prevPos = NextPosition(pointsAhead - 2);
+        float curPointsDistance = Vector3.Distance(prevPos, nextPos);
+        Vector3 outPoint = Vector3.Lerp(nextPos, prevPos, (curDistance - distance) / curPointsDistance);
+
+        //print(curDistance - Vector3.Distance(outPoint, nextPos));
+        return outPoint;
+
+    }
+
+    public Quaternion NextRotation(Vector3 position, float distance)
+    {
+        float curDistance = CheckDistance(position, true);
+        position = NextPosition(2);
+        float prevDistance;
+        int pointsAhead = 3;
+        Vector3 nextPos = Vector3.zero;
+
+
+        while (curDistance < distance)
+        {
+            nextPos = NextPosition(pointsAhead);
+            prevDistance = curDistance;
+            curDistance += Vector3.Distance(nextPos, position);
+            position = nextPos;
+            pointsAhead++;
+        }
+
+        Vector3 prevPos = NextPosition(pointsAhead - 2);
+        Quaternion prevRot = NextRotation(pointsAhead - 2);
+        Quaternion nextRot = NextRotation(pointsAhead - 1);
+
+        float curPointsDistance = Vector3.Distance(prevPos, nextPos);
+        Quaternion outPoint = Quaternion.Lerp(nextRot, prevRot, (curDistance - distance) / curPointsDistance);
+
+        //print(curDistance - Vector3.Distance(outPoint, nextPos));
+        return outPoint;
+
+    }
+
+    public Vector2 NormalizedNextPosition(Vector3 position, Quaternion rotation, float distance)
+    {
+        Vector3 nextPos =  NextPosition(position, distance) - position;
+
+        rotation = Quaternion.Euler(0, -rotation.eulerAngles.y, 0);
+        nextPos = rotation * nextPos;
+        Vector2 nextPos2D = new Vector2(nextPos.x, nextPos.z).normalized;
+        return nextPos2D;
+    }
+
+    public Vector2 NormalizedNextPosition(Vector3 position, Quaternion rotation, int pointsAhead)
+    {
+        Vector3 nextPos = NextPosition(pointsAhead) - position;
+        rotation = Quaternion.Euler(0, -rotation.eulerAngles.y, 0);
+        nextPos = rotation * nextPos;
+
+
+        Vector2 nextPos2D = new Vector2(nextPos.x, nextPos.z).normalized;
+        return nextPos2D;
+    }
+
     public Quaternion CurrentRotation()
     {
         return Quaternion.LookRotation(nextPoint.position - currentPoint.position);

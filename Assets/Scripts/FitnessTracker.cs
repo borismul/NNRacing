@@ -39,7 +39,7 @@ public class FitnessTracker : MonoBehaviour
         float added = trackManager.CheckSetDone(position);
         discreteDistance += added;
 
-        distance = discreteDistance - trackManager.CheckDistance(position, false);
+        distance = discreteDistance - trackManager.CheckDistance(position, true);
         this.time += time;
 
         if ((laps > 0 && !trackManager.track.hasLaps) || laps == GA_Parameters.laps)

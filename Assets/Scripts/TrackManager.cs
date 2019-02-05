@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 
 public class TrackManager : MonoBehaviour
 {
@@ -16,10 +16,7 @@ public class TrackManager : MonoBehaviour
 
     public float bushChance;
 
-    public float grassChance;
-
     public string trackName;
-
     public Track track;
 
     int iPixels;
@@ -35,81 +32,77 @@ public class TrackManager : MonoBehaviour
 
     bool[,] map;
 
+    List<List<List<List<float>>>> wallDistances;
+
     List<GameObject> fancyObjects = new List<GameObject>();
 
-    Texture2D curTex;
+    static Thread mainThread;
 
-    public bool succes;
+    static int numAngleDiscretization = 180;
 
     void Awake()
     {
         trackManager = this;
+        mainThread = Thread.CurrentThread;
+
     }
 
-    public void SetTotalLength()
+    public static void SetTotalLength()
     {
-        for(int i = 0; i < LoadTrackManager.instance.selectedTrackNames.Count; i++)
+        for (int i = 0; i < CarTrainer.instance.trackManagers.Count; i++)
         {
-            trackName = LoadTrackManager.instance.selectedTrackNames[i];
-            LoadTrack(false);
+            trackManager = CarTrainer.instance.trackManagers[i];
             FitnessTracker.AddTrackLength();
         }
     }
-
-    void BuildTrack(bool fancy, bool testTrack = false)
+    
+    void BuildTrack(bool fancy)
     {
-        if (trackName == "" && !testTrack)
+        if (trackName == "")
             return;
-
-        if (curTex != null && ! testTrack)
-            Destroy(curTex);
 
         RemoveFancyObjects();
 
-        if (!testTrack)
-        {
-            track = SaveableObjects.LoadTrack(trackName);
-            curTex = track.texture;
-        }
-        else
-        {
-            curTex = (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex");
-        }
 
-        localScale.x = transform.localScale.x;
-        localScale.y = transform.localScale.z;
-
-        GetComponent<Renderer>().material.SetTexture("_MainTex", curTex);
-        Initialize();
-        GetColors();
-        CreateMap();
-
-        if (fancy)
-            FancyUp();
+        //if (fancy)
+        //    FancyUp();
         //CreateWall();
         //OptimizeWalls();
 
     }
 
-    void Initialize()
+    public void Initialize(string trackName)
     {
+        this.trackName = trackName;
+        track = SaveableObjects.LoadTrack(trackName);
+
         // Get the number of pixels in the texture and their size
-        iPixels = curTex.width;
-        jPixels = curTex.height;
+        iPixels = track.texture.width;
+        jPixels = track.texture.height;
         pixelSize = new Vector2(transform.localScale.x * 10 / iPixels, transform.localScale.z * 10 / jPixels);
+
+        localScale.x = transform.localScale.x;
+        localScale.y = transform.localScale.z;
+
+        map = new bool[iPixels, jPixels];
+
+        GetColors();
+        CreateMap();
+        CreateWallDistances();
+        GetComponent<Renderer>().material.SetTexture("_MainTex", track.texture);
+
     }
 
     // Save all of the pixel colors and position in matrices
     void GetColors()
     {
-        colors.Clear();
         // Loop through the texture and add the colors and positions of the pixels to the matrices
         for (int i = 0; i < iPixels; i++)
         {
             colors.Add(new List<Color>());
             for (int j = 0; j < jPixels; j++)
             {
-                colors[i].Add(curTex.GetPixel(i, j));
+                colors[i].Add(track.texture.GetPixel(i, j));
             }
         }
     }
@@ -242,7 +235,7 @@ public class TrackManager : MonoBehaviour
 
         Vector2 prevPixel = new Vector2(-1, -1);
 
-        vert.Add(Pixel2Position((int)curPixel.x,(int)curPixel.y) - Vector3.down * 15);
+        vert.Add(Pixel2Position((int)curPixel.x, (int)curPixel.y) - Vector3.down * 15);
         vert.Add(Pixel2Position((int)curPixel.x, (int)curPixel.y) + Vector3.down * 15);
 
         int zero;
@@ -260,7 +253,7 @@ public class TrackManager : MonoBehaviour
             nextPixel.x = -1;
             nextPixel.y = -1;
 
-            GetNextPixel(ref donePixel,ref nextPixel, i, j);
+            GetNextPixel(ref donePixel, ref nextPixel, i, j);
 
             if (((int)nextPixel.x == -1 && (int)nextPixel.y == -1) && ((int)prevPixel.x != -1 && (int)prevPixel.y != -1))
             {
@@ -354,7 +347,6 @@ public class TrackManager : MonoBehaviour
 
     void CreateMap()
     {
-        map = new bool[iPixels, jPixels];
         for (int i = 0; i < iPixels; i++)
         {
             for (int j = 0; j < jPixels; j++)
@@ -368,11 +360,30 @@ public class TrackManager : MonoBehaviour
         }
     }
 
+    void CreateWallDistances()
+    {
+        wallDistances = new List<List<List<List<float>>>>();
+
+        for (int i = 0; i < iPixels; i++)
+        {
+            wallDistances.Add(new List<List<List<float>>>());
+            for (int j = 0; j < jPixels; j++)
+            {
+                wallDistances[i].Add(new List<List<float>>());
+                for (int k = 0; k < numAngleDiscretization; k++)
+                {
+                    //wallDistances[i][j].Add(CalcWallDistance(Pixel2Position(i, j), (float)k / numAngleDiscretization * 360));
+                    wallDistances[i][j].Add(null);
+                }
+            }
+        }
+    }
+
     bool CanHoldItem(int iPixel, int jPixel)
     {
-        for(int i = -2; i < 3; i++)
+        for (int i = -2; i < 3; i++)
         {
-            for(int j = -2; j < 3; j++)
+            for (int j = -2; j < 3; j++)
             {
 
                 if (i + iPixel < 0)
@@ -389,7 +400,7 @@ public class TrackManager : MonoBehaviour
 
                 if (!HasGrass(new Vector2Int(i + iPixel, j + jPixel)))
                     return false;
-                    
+
             }
         }
         return true;
@@ -398,42 +409,31 @@ public class TrackManager : MonoBehaviour
     void FancyUp()
     {
 
-        for(int i = 0; i < iPixels; i++)
+        for (int i = 0; i < iPixels; i++)
         {
-            for(int j = 0; j < jPixels; j++)
+            for (int j = 0; j < jPixels; j++)
             {
-                if (CanHoldItem(i,j))
+                if (CanHoldItem(i, j))
                 {
                     float rand = Random.Range(0f, 1f);
 
-                    if(rand < treeChance)
+                    if (rand < treeChance)
                     {
                         int num = Random.Range(0, trees.Length);
                         float rot = Random.Range(0f, 360f);
                         float scale = Random.Range(0.9f, 1.1f);
-                        GameObject obj = Instantiate(trees[num], Pixel2Position(new Vector2Int(i, j)), Quaternion.Euler(0,rot,0));
+                        GameObject obj = Instantiate(trees[num], Pixel2Position(new Vector2Int(i, j)), Quaternion.Euler(0, rot, 0));
                         obj.transform.localScale = new Vector3(scale, scale, scale);
 
                         fancyObjects.Add(obj);
 
                     }
-                    else if(rand - treeChance < bushChance)
+                    else if (rand - treeChance < bushChance)
                     {
                         int num = Random.Range(0, bushes.Length);
                         float rot = Random.Range(0f, 360f);
                         float scale = Random.Range(0.1f, 0.6f);
                         GameObject obj = Instantiate(bushes[num], Pixel2Position(new Vector2Int(i, j)), Quaternion.Euler(0, rot, 0));
-
-                        obj.transform.localScale = new Vector3(scale, scale, scale);
-                        fancyObjects.Add(obj);
-
-                    }
-                    else if (rand - treeChance - bushChance < grassChance)
-                    {
-                        int num = Random.Range(0, grass.Length);
-                        float rot = Random.Range(0f, 360f);
-                        float scale = Random.Range(1f, 2f);
-                        GameObject obj = Instantiate(grass[num], Pixel2Position(new Vector2Int(i, j)), Quaternion.Euler(0, rot, 0));
 
                         obj.transform.localScale = new Vector3(scale, scale, scale);
                         fancyObjects.Add(obj);
@@ -468,6 +468,7 @@ public class TrackManager : MonoBehaviour
         int y = -Mathf.RoundToInt((position.z - localScale.y * 10 + pixelSize.y / 2) / pixelSize.y);
 
         return new Vector2Int(x, y);
+
     }
 
     Texture2D AntiAlias(Texture2D tex, int aliasSize)
@@ -521,52 +522,41 @@ public class TrackManager : MonoBehaviour
         return newTex;
     }
 
-    public IEnumerator SaveTrack(string trackName)
+    public bool SaveTrack(string trackName)
     {
-        BuildTrack(false, true);
-        track = new Track(trackName, (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex"), TexturePainter.instance.trackpoints, 0);
-        yield return StartCoroutine(RaceManager.raceManager.TestTrack());
-        float time = RaceManager.raceManager.GetCurrentCompetingCars()[0].totalTime;
-        if (RaceManager.raceManager.GetCurrentCompetingCars()[0].GetFinishTime() != -1)
-            succes = true;
-        else
-        {
-            succes = false;
-            Destroy(RaceManager.raceManager.GetCurrentCompetingCars()[0].gameObject);
-
-            yield break;
-        }
-        Destroy(RaceManager.raceManager.GetCurrentCompetingCars()[0].gameObject);
         List<Vector3> trackPoints = new List<Vector3>();
-        track = new Track(trackName, (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex"), TexturePainter.instance.trackpoints, time);
-        SaveableObjects.SaveTrack(track);
+        track = new Track(trackName, (Texture2D)GetComponent<Renderer>().material.GetTexture("_MainTex"), TexturePainter.instance.trackpoints);
+        return SaveableObjects.SaveTrack(track);
     }
 
-    public bool LoadTrack(bool fancy)
+    public static bool LoadTrack(bool fancy, string trackName)
     {
-
-        BuildTrack(fancy);
+        TrackManager manager = Instantiate(CarTrainer.instance.trackPrefab).GetComponent<TrackManager>();
+        manager.Initialize(trackName);
         return true;
 
+    }
+
+    public static void DeleteTrack()
+    {
+        Destroy(trackManager.gameObject);
+        
     }
 
     public Track GetTrack()
     {
         List<Vector3> trackPointsCopy = new List<Vector3>();
-        
+
         for (int i = 0; i < track.trackPoints.Count; i++)
             trackPointsCopy.Add(track.trackPoints[i].position);
 
-        Track trackCopy = new Track(trackName, track.texture, trackPointsCopy, track.raceTime);
+        Track trackCopy = new Track(trackName, track.texture, trackPointsCopy);
 
         return trackCopy;
     }
 
     public bool HasGrass(Vector2Int pixel)
     {
-        if (pixel.x >= iPixels || pixel.x < 0 || pixel.y >= jPixels || pixel.y < 0)
-            return true;
-
         return !map[pixel.x, pixel.y];
     }
 
@@ -575,69 +565,149 @@ public class TrackManager : MonoBehaviour
         Vector2Int pixelPos = Position2Pixel(position);
 
         if (pixelPos.x >= iPixels || pixelPos.x < 0 || pixelPos.y >= jPixels || pixelPos.y < 0)
-            return true;
-
+            return false;
 
         return !map[pixelPos.x, pixelPos.y];
     }
 
-    public static float WallDistance(Vector3 position, Quaternion objRotation, float angle)
+    public List<float> CalcWallDistance(Vector2Int currentPixel, float angle)
+    {
+        List<float> distances = new List<float>();
+        bool[] hasGrass = new bool[3];
+
+        hasGrass[0] = true;
+        hasGrass[1] = false;
+        hasGrass[2] = true;
+
+        for (int i = 0; i < 1; i++)
+        {
+
+
+            Vector2Int startPixel = currentPixel;
+
+            float finalAngle = angle;
+            Vector2 direction = (new Vector3(Mathf.Cos(finalAngle * Mathf.Deg2Rad) + Mathf.Sin(finalAngle * Mathf.Deg2Rad), Mathf.Cos(finalAngle * Mathf.Deg2Rad) - Mathf.Sin(finalAngle * Mathf.Deg2Rad))).normalized * trackManager.pixelSize.x;
+            Vector2 currentPos = currentPixel;
+            bool hasGrassCheck = !hasGrass[i];
+
+            int index = 0;
+            bool gebreaked = false;
+            while (!hasGrass[i] == hasGrassCheck)
+            {
+                index++;
+                currentPos -= direction;
+                currentPixel = new Vector2Int(Mathf.RoundToInt(currentPos.x), Mathf.RoundToInt(currentPos.y));
+
+                if (currentPixel.x >= trackManager.iPixels)
+                {
+                    currentPixel.x = trackManager.iPixels - 1;
+                    gebreaked = true;
+                    break;
+                }
+                else if (currentPixel.x < 0)
+                {
+                    currentPixel.x = 0;
+                    gebreaked = true;
+                    break;
+                }
+
+                if (currentPixel.y >= trackManager.jPixels)
+                {
+                    currentPixel.y = trackManager.jPixels - 1;
+                    gebreaked = true;
+                    break;
+                }
+                else if (currentPixel.y < 0)
+                {
+                    currentPixel.y = 0;
+                    gebreaked = true;
+                    break;
+                }
+
+                hasGrassCheck = trackManager.HasGrass(currentPixel);
+            }
+            if (!gebreaked)
+                distances.Add((Pixel2Position(currentPixel) - Pixel2Position(startPixel)).magnitude);
+            else if (gebreaked && i == 1)
+                distances.Add(0);
+            else if (gebreaked && i == 2)
+                distances.Add(0);
+        }
+
+        return distances;
+    }
+
+    public List<float> GetWallDistance(Vector3 position, Quaternion objRotation, float angle)
     {
         Vector2Int currentPixel = trackManager.Position2Pixel(position);
         float finalAngle = objRotation.eulerAngles.y + angle - 45;
 
-        Vector2 direction = (new Vector3(Mathf.Cos(finalAngle * Mathf.Deg2Rad) + Mathf.Sin(finalAngle * Mathf.Deg2Rad), Mathf.Cos(finalAngle * Mathf.Deg2Rad) - Mathf.Sin(finalAngle * Mathf.Deg2Rad))).normalized * trackManager.pixelSize.x;
-
-        float slope = Mathf.Tan(finalAngle * Mathf.Deg2Rad);
-
-        Vector2 prevPixel = currentPixel;
-        Vector2 intermediate = currentPixel;
-        bool hasGrass = false;
-        int multiplier = 20;
-        int count = 0;
-
-        while(!hasGrass)
+        if (finalAngle < 0)
         {
-            prevPixel = intermediate;
-
-            if (count < 20)
-                intermediate -= direction * 2;
-            else
-                intermediate -= direction * multiplier;
-
-            currentPixel.x = (int)(intermediate.x);
-            currentPixel.y = (int)(intermediate.y);
-
-            if (currentPixel.x >= trackManager.iPixels)
-                currentPixel.x = trackManager.iPixels - 1;
-            else if (currentPixel.x < 0)
-                currentPixel.x = 0;
-
-            if (currentPixel.y >= trackManager.jPixels)
-                currentPixel.y = trackManager.jPixels - 1;
-            else if (currentPixel.y < 0)
-                currentPixel.y = 0;
-            hasGrass = trackManager.HasGrass(currentPixel);
-            if (hasGrass && multiplier > 4 && count >= 20)
-            {
-                hasGrass = false;
-                intermediate = prevPixel;
-                multiplier /= 3;
-            }
-            count += 1;
+            finalAngle += 360;
         }
-        //Debug.DrawLine(position, trackManager.Pixel2Position(currentPixel));
 
-        return Vector3.Distance(trackManager.Pixel2Position(currentPixel), position);
+        if (finalAngle >= 360)
+        {
+            finalAngle -= 360;
+        }
+        int angleIndex = (int)(finalAngle / 360 * numAngleDiscretization);
+        finalAngle = angleIndex * 360 / numAngleDiscretization;
+        Vector3 direction = (new Vector3(Mathf.Cos(finalAngle * Mathf.Deg2Rad) + Mathf.Sin(finalAngle * Mathf.Deg2Rad), 0, Mathf.Cos(finalAngle * Mathf.Deg2Rad) - Mathf.Sin(finalAngle * Mathf.Deg2Rad))).normalized;
+
+        if (currentPixel.x >= trackManager.iPixels)
+            currentPixel.x = trackManager.iPixels - 1;
+        else if (currentPixel.x < 0)
+            currentPixel.x = 0;
+
+        if (currentPixel.y >= trackManager.jPixels)
+            currentPixel.y = trackManager.jPixels - 1;
+        else if (currentPixel.y < 0)
+            currentPixel.y = 0;
+
+        if (wallDistances[currentPixel[0]][currentPixel[1]][angleIndex] == null)
+            wallDistances[currentPixel[0]][currentPixel[1]][angleIndex] = CalcWallDistance(currentPixel, finalAngle);
+
+        List<float> wallDistance = wallDistances[currentPixel[0]][currentPixel[1]][angleIndex];
+
+        if (Thread.CurrentThread == mainThread)
+        {
+            Color[] colors = new Color[3];
+            colors[0] = Color.red;
+            colors[1] = Color.green;
+            colors[2] = Color.blue;
+
+            Vector3 startPos = position;
+            for (int i = 0; i < wallDistances[currentPixel[0]][currentPixel[1]][angleIndex].Count; i++)
+            {
+                Debug.DrawRay(startPos, direction * wallDistances[currentPixel[0]][currentPixel[1]][angleIndex][i], colors[i]);
+                startPos += direction * wallDistances[currentPixel[0]][currentPixel[1]][angleIndex][i];
+            }
+        }
+
+        return wallDistance;
+
     }
 
     void RemoveFancyObjects()
     {
-        for(int i = 0; i < fancyObjects.Count; i++)
+        for (int i = 0; i < fancyObjects.Count; i++)
         {
             Destroy(fancyObjects[i]);
         }
     }
 
+    private void OnEnable()
+    {
+        trackManager = this;
+    }
+
+    private void OnDisable()
+    {
+    }
 
 }
+
+
+
+

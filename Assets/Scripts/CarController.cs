@@ -58,10 +58,10 @@ public class CarController : MonoBehaviour
     List<float> input = new List<float>();
     RaycastHit hit;
     Vector3 direction;
-    float curdist;
+    List<float> curdist;
     int visionPoints;
     List<float> output;
-    public TrailRenderer trailren;
+    public LineRenderer trailren;
     Texture2D groundTexture;
 
     // Stuff that is needed to see how well a car did after finishing
@@ -99,8 +99,31 @@ public class CarController : MonoBehaviour
 
     System.Random random = new System.Random();
 
+    float zeroSpeedTime = 0;
+
+    List<Vector3> trailRenPos = new List<Vector3>();
+    float trailRenLen = 0;
+    float trailRenMaxLen = 200;
+    public float trailRenLength;
+
+    float desiredTurn;
+    float desiredAcc;
+
+    Vector3 savedPosition;
+    Quaternion savedRotation;
+    Vector3 savedVelocity;
+    float savedTurn;
+    float savedAcc;
+    float savedCurRotAngle;
+    float savedPrevRotAngle;
+
+    static Thread mainThread;
+
+
     void Awake()
     {
+        mainThread = Thread.CurrentThread;
+
         // Get used components
         col = GetComponent<BoxCollider>();
         fitnessTracker = GetComponent<FitnessTracker>();
@@ -130,6 +153,10 @@ public class CarController : MonoBehaviour
 
     }
 
+    private void LateUpdate()
+    {
+        SetTrailRenderer();
+    }
     // The inputs from the player
     void GetInputs()
     {
@@ -165,7 +192,7 @@ public class CarController : MonoBehaviour
         if (totalTime > maxTime)
             return false;
         // If the current neural network is misformed stop simulation
-        if (aIPlayer != null && !CalculateNetworkOutput() && !doNotStopAtCrash)
+        if (aIPlayer != null && !CalculateNetworkOutput(deltaTime) && !doNotStopAtCrash)
             return false;
 
         if (aIPlayer == null)
@@ -175,8 +202,9 @@ public class CarController : MonoBehaviour
         Move(deltaTime);
 
         // If the car has a collision
-        if (OnGrass() == 4 || ((velocity.x == 0 && velocity.z == 0) && aIPlayer != null))
+        if (OnGrass() > 0 || ((velocity.x == 0 && velocity.z == 0) && aIPlayer != null))
         {
+
             // If the car has to stop at a crash stop the simulation
             if (threaded && !doNotStopAtCrash)
             {
@@ -199,7 +227,7 @@ public class CarController : MonoBehaviour
                 ThreadReset(true, true);
                 fitnessTracker.AddCrash();
 
-                if (fitnessTracker.crashes > 10)
+                if (fitnessTracker.crashes > 3)
                     return false;
             }
         }
@@ -215,7 +243,7 @@ public class CarController : MonoBehaviour
     }
 
     // Method that moves and rotates the car to its new position
-    void Move(float deltaTime)
+    void Move(float deltaTime, bool add = true)
     {
         // Acceleration caused by forces
         float acceleration = acc;
@@ -269,11 +297,14 @@ public class CarController : MonoBehaviour
         position += velocity * deltaTime;
         rotation = rot;
 
-        lock (positionsLock)
-            positions.Add(position);
+        if (add)
+        {
+            lock (positionsLock)
+                positions.Add(position);
 
-        lock (rotationsLock)
-            rotations.Add(rotation);
+            lock (rotationsLock)
+                rotations.Add(rotation);
+        }
         
         // Store the current rotation angle
         prevRotAngle = curRotAngle;
@@ -325,9 +356,10 @@ public class CarController : MonoBehaviour
                 if (!threaded & GA_Parameters.updateRate == 1 && acc != 0)
                 {
                     var ps = wheelPs[i].emission;
-
+                    
                     ps.rateOverTime = 100;
-
+                    var psMain = wheelPs[i].main;
+                    psMain.simulationSpace = ParticleSystemSimulationSpace.World;
                 }
             }
             else
@@ -348,21 +380,23 @@ public class CarController : MonoBehaviour
     }
 
     // Method that gets all inputs for the neural network and then calculates the output of the network
-    public bool CalculateNetworkOutput()
+    public bool CalculateNetworkOutput(float deltaTime)
     {
-        InputWithoutRaycast();
-
+        AlternativeInputs();
+        //InputWithoutRaycast(deltaTime);
         return SetOutput(input);
     }
 
-    void InputWithoutRaycast()
+    void InputWithoutRaycast(float deltaTime)
     {
         int inputs = aIPlayer.network.inputs;
 
         // Create a new list of inputs
         input.Clear();
-
-        visionPoints = inputs - 1;
+        visionPoints = (int)(((float)inputs - 1f));
+        int totalVisionPoints = visionPoints;
+        visionPoints = (int)((float)(visionPoints));
+        totalVisionPoints -= visionPoints;
         // Rotate around the car and cast rays to see how far each wall is at that rotation
         for (int i = 0; i < visionPoints; i++)
         {
@@ -373,20 +407,208 @@ public class CarController : MonoBehaviour
             else
                 angle = -Mathf.PI / 1.5f / (i + 1 - (float)visionPoints / 2) + Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
 
-            curdist = TrackManager.WallDistance(position, rotation, angle * Mathf.Rad2Deg);
+            curdist = TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg);
+            for (int j = 0; j < curdist.Count; j++)
+                // Add as input
+                input.Add(((curdist[j]) / 75) /*+ (float)SampleGaussian(0, 1.0 / 9)*/);
 
-            // Add as input
-            input.Add(((curdist - 10) / 25)); /*+ (float)SampleGaussian(0, 1.0 / 9));*/
         }
 
-        // add the velocity as input
-        input.Add((velocity.magnitude - 15) / 5);
+        //savedPosition = position;
+        //savedRotation = rotation;
+        ////savedVelocity = velocity;
+
+        ////savedTurn = turn;
+        ////savedAcc = acc;
+        ////savedCurRotAngle = curRotAngle;
+        ////savedPrevRotAngle = prevRotAngle;
+
+        ////acc = desiredAcc;
+        ////turn = desiredTurn;
+        ////int numTimeSteps = 20;
+
+        ////for (int i = 0; i < numTimeSteps; i++)
+        ////{
+        ////    Move(deltaTime, false);
+        ////}
+
+        ////rotation = savedRotation;
+
+        //visionPoints = (int)((float)totalVisionPoints);
+        //totalVisionPoints -= visionPoints;
+
+        ////Vector3 offset = position - trackManager.CurrentPosition();
+        ////float eulerAngle = Quaternion.Angle(trackManager.CurrentRotation(), trackManager.NextRotation(10));
+
+        ////if (Thread.CurrentThread == mainThread)
+        ////{
+        ////    Debug.DrawLine(position, trackManager.CurrentPosition(), Color.blue);
+        ////    Debug.DrawLine(trackManager.NextPosition(10), trackManager.NextPosition(10) + Quaternion.Euler(0, -eulerAngle, 0) * offset, Color.black);
+        ////}
+        //position = trackManager.NextPosition(savedPosition, 30) /*+ Quaternion.Euler(0, -eulerAngle, 0) * offset*/;
+        //rotation = trackManager.NextRotation(savedPosition, 30);
+
+        ////rotation = trackManager.NextRotation(10);
+        //for (int i = 0; i < visionPoints; i++)
+        //{
+        //    //Space the angles closer and closer as they point point more and more forward
+        //    //float angle = -Mathf.PI/6 + Mathf.PI/6 / visionPoints * i*2;
+
+        //    //Space the angles closer and closer as they point point more and more forward
+        //    float angle;
+        //    if (i - (float)visionPoints / 2 < 0)
+        //        angle = Mathf.PI / 1.5f / (i + 1) - Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
+        //    else
+        //        angle = -Mathf.PI / 1.5f / (i + 1 - (float)visionPoints / 2) + Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
+        //    float finalAngle = rotation.eulerAngles.y + angle * Mathf.Rad2Deg - 45;
+
+        //    Vector3 direction = (new Vector3(Mathf.Cos(finalAngle * Mathf.Deg2Rad) + Mathf.Sin(finalAngle * Mathf.Deg2Rad), 0, Mathf.Cos(finalAngle * Mathf.Deg2Rad) - Mathf.Sin(finalAngle * Mathf.Deg2Rad))).normalized;
+        //    curdist = TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg);
+
+
+        //    if (Thread.CurrentThread == mainThread)
+        //    {
+
+        //        Debug.DrawLine(savedPosition, position + direction * curdist[0], Color.blue);
+        //    }
+
+
+        //    for (int j = 0; j < curdist.Count; j++)
+
+        //        // Add as input
+        //        input.Add((Vector3.Distance(savedPosition, position + direction * curdist[0]) / 75) /*+ (float)SampleGaussian(0, 1.0 / 9)*/);
+        //}
+        ////visionPoints = (int)((float)totalVisionPoints / 2);
+        ////totalVisionPoints -= visionPoints;
+
+        ////position = trackManager.NextPosition(savedPosition, 30) /*+ Quaternion.Euler(0, -eulerAngle, 0) * offset*/;
+        ////rotation = trackManager.NextRotation(savedPosition, 30);
+        //////rotation = trackManager.NextRotation(10);
+        ////for (int i = 0; i < visionPoints; i++)
+        ////{
+        ////    //Space the angles closer and closer as they point point more and more forward
+        ////    //float angle = -Mathf.PI/6 + Mathf.PI/6 / visionPoints * i*2;
+
+        ////    //Space the angles closer and closer as they point point more and more forward
+        ////    float angle;
+        ////    if (i - (float)visionPoints / 2 < 0)
+        ////        angle = Mathf.PI / 1.5f / (i + 1) - Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
+        ////    else
+        ////        angle = -Mathf.PI / 1.5f / (i + 1 - (float)visionPoints / 2) + Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
+
+        ////    curdist = TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg);
+        ////    for (int j = 0; j < curdist.Count; j++)
+        ////        // Add as input
+        ////        input.Add(((curdist[j] + Vector3.Distance(savedPosition, position)) / 100) /*+ (float)SampleGaussian(0, 1.0 / 9)*/);
+        ////}
+
+        ////visionPoints = totalVisionPoints;
+
+        ////position = trackManager.NextPosition(savedPosition, 45) /*+ Quaternion.Euler(0, -eulerAngle, 0) * offset*/;
+        ////rotation = trackManager.NextRotation(savedPosition, 45);
+        //////rotation = trackManager.NextRotation(10);
+        ////for (int i = 0; i < visionPoints; i++)
+        ////{
+        ////    //Space the angles closer and closer as they point point more and more forward
+        ////    //float angle = -Mathf.PI/6 + Mathf.PI/6 / visionPoints * i*2;
+
+        ////    //Space the angles closer and closer as they point point more and more forward
+        ////    float angle;
+        ////    if (i - (float)visionPoints / 2 < 0)
+        ////        angle = Mathf.PI / 1.5f / (i + 1) - Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
+        ////    else
+        ////        angle = -Mathf.PI / 1.5f / (i + 1 - (float)visionPoints / 2) + Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
+
+        ////    curdist = TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg);
+        ////    for (int j = 0; j < curdist.Count; j++)
+        ////        // Add as input
+        ////        input.Add(((curdist[j] + Vector3.Distance(savedPosition, position)) / 100) /*+ (float)SampleGaussian(0, 1.0 / 9)*/);
+        ////}
+
+        ////// add the velocity as input
+        input.Add((velocity.magnitude) / 90);
+
+        //position = savedPosition;
+        //rotation = savedRotation;
+        ////velocity = savedVelocity;
+        ////acc = savedAcc;
+        ////turn = savedTurn;
+        ////prevRotAngle = savedPrevRotAngle;
+        ////curRotAngle = savedCurRotAngle;
+
+    }
+
+    void AlternativeInputs()
+    {
+        int inputs = aIPlayer.network.inputs;
+
+        // Create a new list of inputs
+        input.Clear();
+
+        visionPoints = inputs - 1;
+
+        int totalVisionPoints = visionPoints;
+
+        visionPoints = (int)((float)(visionPoints) / 2f);
+
+        if (visionPoints % 2 > 0)
+            visionPoints -= 1;
+
+        totalVisionPoints -= visionPoints;
+
+        // Rotate around the car and cast rays to see how far each wall is at that rotation
+        for (int i = 0; i < visionPoints; i++)
+        {
+            //Space the angles closer and closer as they point point more and more forward
+            float angle;
+            if (i - (float)visionPoints / 2 < 0)
+                angle = Mathf.PI / 1.5f / (i + 1) - Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
+            else
+                angle = -Mathf.PI / 1.5f / (i + 1 - (float)visionPoints / 2) + Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
+
+            curdist = TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg);
+            for (int j = 0; j < curdist.Count; j++)
+                // Add as input
+                input.Add(((curdist[j]) / 75) /*+ (float)SampleGaussian(0, 1.0 / 9)*/);
+
+        }
+
+        //visionPoints /= 2;
+        //float maxDistAhead = 50;
+        //for (int i = 0; i < visionPoints; i++)
+        //{
+
+        //    Vector2 pointInputs = trackManager.NormalizedNextPosition(position, rotation, (i + 1) * maxDistAhead / visionPoints);
+        //    input.Add(pointInputs.x);
+        //    input.Add(pointInputs.y);
+        //    if (Thread.CurrentThread == mainThread)
+        //    {
+        //        Debug.DrawLine(position, position + new Vector3(pointInputs.x, 0, pointInputs.y)*10, Color.blue);
+        //    }
+        //}
+
+        visionPoints /= 2;
+        int maxPointsAhead = 25;
+        for (int i = 0; i < visionPoints; i++)
+        {
+
+            Vector2 pointInputs = trackManager.NormalizedNextPosition(position, rotation, Mathf.RoundToInt((i + 1) * (float)maxPointsAhead / visionPoints));
+            input.Add(pointInputs.x);
+            input.Add(pointInputs.y);
+            if (Thread.CurrentThread == mainThread)
+            {
+                Debug.DrawLine(position, position + new Vector3(pointInputs.x, 0, pointInputs.y) * 10, Color.blue);
+            }
+        }
+
+        input.Add((velocity.magnitude) / 90);
+
     }
 
     // Get the output of the neural network and set it to the inputs for the cars
     public bool SetOutput(List<float> input)
     {
-        jitterPenalty -= jitterPenalty * 0.1f * 1f/GA_Parameters.fps;
+        jitterPenalty -= jitterPenalty * 0.01f * 1f/GA_Parameters.fps;
         output = aIPlayer.network.Update(input);
         if (output == null || output.Count < 6)
             return false;
@@ -401,6 +623,8 @@ public class CarController : MonoBehaviour
                 maxOutput = output[i];
             }
         }
+
+        desiredAcc = (output[0] - output[1]) * accSpeed;
 
         for (int i = 0; i < 3; i++)
         {
@@ -419,6 +643,8 @@ public class CarController : MonoBehaviour
                 maxOutput = output[i];
             }
         }
+        desiredTurn = (output[4] - output[5]) * turnSpeed; 
+
         for (int i = 3; i < 6; i++)
         {
             if (index != i)
@@ -433,8 +659,8 @@ public class CarController : MonoBehaviour
             jitterPenalty += 0.5f;
 
         turn = newTurn;
-        if (jitterPenalty > 2f)
-            return false;
+        //if (jitterPenalty > 2f)
+        //    return false;
 
         //if (output[0] > 0.5f)
         //    acc = (output[0] - 0.5f) * accSpeed;
@@ -455,6 +681,10 @@ public class CarController : MonoBehaviour
 
         position = trackManager.CurrentPosition();
         rotation = trackManager.CurrentRotation();
+
+        trailren.positionCount = 0;
+        trailRenLen = 0;
+        trailRenPos.Clear();
 
         curRotAngle = rotation.eulerAngles.y;
         prevRotAngle = rotation.eulerAngles.y;
@@ -488,7 +718,9 @@ public class CarController : MonoBehaviour
         position = transform.position;
         rotation = transform.rotation;
 
-        trailren.Clear();
+        trailren.positionCount = 0;
+        trailRenLen = 0;
+        trailRenPos.Clear();
         
         trackSphere.transform.position = transform.position;
 
@@ -529,6 +761,18 @@ public class CarController : MonoBehaviour
                 if (rotations.Count > 0 && positions.Count > 0)
                 {
                     transform.position = positions[0];
+                    trailRenPos.Add(transform.position);
+                    if (trailRenPos.Count > 1)
+                        trailRenLen += (trailRenPos[trailRenPos.Count - 2] - trailRenPos[trailRenPos.Count - 1]).magnitude;
+
+                    while (trailRenLen > trailRenMaxLen)
+                    {
+                        trailRenLen -= (trailRenPos[0] - trailRenPos[1]).magnitude;
+                        trailRenPos.RemoveAt(0);
+
+                    }
+                    trailRenLength = trailRenPos.Count;
+
                     positions.RemoveAt(0);
 
                     transform.rotation = rotations[0];
@@ -544,6 +788,12 @@ public class CarController : MonoBehaviour
        
             }
         }
+    }
+
+    public void SetTrailRenderer()
+    {
+        trailren.positionCount = trailRenPos.Count;
+        trailren.SetPositions(trailRenPos.ToArray());
     }
 
     public bool IsDone()
@@ -633,7 +883,7 @@ public class CarController : MonoBehaviour
 
     public void ClearTrail()
     {
-        trailren.Clear();
+        trailren.positionCount = 0;
     }
 
     public void SetLastTimePoint()

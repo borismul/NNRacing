@@ -41,8 +41,12 @@ public class Species
 
     public void Purge()
     {
+        //for(int i = 0; i < members.Count; i++)
+        //{
+        //    if (members[i].GetID() != leader.GetID())
+        //        Genome.freeGenomes.Add(members[i]);
+        //}
         members.Clear();
-
         age++;
         generationsNoImprovement++;
         spawnsRequired = 0;
@@ -79,31 +83,38 @@ public class Species
             offSpring = members[0];
         else
         {
-            int maxIndexSize = (int)(GA_Parameters.survivalRate * members.Count) + 1;
 
-            int index = Random.Range(0, maxIndexSize);
-            offSpring = members[index];
+            int maxIndex = (int)(GA_Parameters.survivalRate * members.Count);
+            //int index = Genome.RouletteSelection(maxIndex);
 
-            //int maxN = members.Count * (members.Count + 1) / 2;
-            //int n = Random.Range(0, maxN);
-            //int sum = 0;
-            //int index = 0;
-            //for (int i = 0; i < members.Count; i++)
+            int index = Random.Range(0, maxIndex);
+
+            //if (Genome.freeGenomes.Count > 0)
             //{
-            //    sum += i;
-
-            //    if (sum > n)
-            //    {
-            //        index = members.Count - 1 - i;
-            //        break;
-            //    }
-
+            //    Genome genome = Genome.freeGenomes[0];
+            //    Genome.freeGenomes.RemoveAt(0);
+            //    genome.SetGenome(members[index]);
+            //    return genome;
             //}
+            //else
+                return new Genome(members[index]);
+            //int n = (int)(GA_Parameters.survivalRate * members.Count);
 
-            //offSpring = members[index];
+            //int index = Mathf.RoundToInt(Random.Range(0f, 1f) * (n * (n + 1) / 2));
+            //int temp = 0;
+
+            //for (int i = n; i > 0; i--)
+            //{
+            //    temp += n - (i - 1);
+
+            //    if (index < temp)
+            //    {
+            //        return members[i - 1];
+            //    }
+            //}
         }
 
-        return offSpring;
+        return new Genome(members[0]);
     }
 
 }

@@ -13,14 +13,44 @@ public class NodeGene
     public NodeGene(NodeType type,
                     int ID,
                     Vector2 splitValues,
-                    bool recurrent = false,
-                    float actResponse = 0.5f)
+                    bool recurrent = false)
+    {
+        this.ID = ID;
+        this.type = type;
+        this.recurrent = recurrent;
+        this.splitValues = splitValues;
+        this.actResponse = Random.Range(-1, 1);
+    }
+
+    public NodeGene(NodeGene gene)
+    {
+        this.ID = gene.ID;
+        this.type = gene.type;
+        this.recurrent = gene.recurrent;
+        this.splitValues = gene.splitValues;
+        this.actResponse = gene.actResponse;
+    }
+
+    public NodeGene(NodeType type,
+                int ID,
+                Vector2 splitValues,
+                float actResponse,
+                bool recurrent = false)
     {
         this.ID = ID;
         this.type = type;
         this.recurrent = recurrent;
         this.splitValues = splitValues;
         this.actResponse = actResponse;
+    }
+
+    public void SetGene(NodeGene gene)
+    {
+        this.ID = gene.ID;
+        this.type = gene.type;
+        this.recurrent = gene.recurrent;
+        this.splitValues = gene.splitValues;
+        this.actResponse = gene.actResponse;
     }
 }
 
@@ -46,5 +76,25 @@ public class ConnectionGene
         this.enabled = enabled;
         this.innovNum = innovNum;
         this.recurrent = recurrent;
+    }
+
+    public ConnectionGene(ConnectionGene gene)
+    {
+        this.from = gene.from;
+        this.to = gene.to;
+        this.weight = gene.weight;
+        this.enabled = gene.enabled;
+        this.innovNum = gene.innovNum;
+        this.recurrent = gene.recurrent;
+    }
+
+    public void SetGene(ConnectionGene gene)
+    {
+        this.from = gene.from;
+        this.to = gene.to;
+        this.weight = gene.weight;
+        this.enabled = gene.enabled;
+        this.innovNum = gene.innovNum;
+        this.recurrent = gene.recurrent;
     }
 }

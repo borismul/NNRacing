@@ -33,11 +33,17 @@ public class CarTrainer : MonoBehaviour
     // the current generation we'er in
     public int curGeneration;
 
+    public int bestGeneration;
+
     // A list of neural networks which is currently running
     public List<NeuralNetwork> generationNetworks = new List<NeuralNetwork>();
 
     // List of fitnesses in this generation
     List<float> fitnesses = new List<float>();
+
+    public GameObject trackPrefab;
+
+    public List<TrackManager> trackManagers = new List<TrackManager>();
 
     void Awake()
     {
@@ -49,7 +55,11 @@ public class CarTrainer : MonoBehaviour
     void Start()
     {
         raceManager = RaceManager.raceManager;
+
+
     }
+
+
 
     // This method starts the training of the neural networks
     public void StartSim()
@@ -57,19 +67,31 @@ public class CarTrainer : MonoBehaviour
         pause = false;
         isPaused = false;
         InitializeNetworks();
-        MyThreadPool.StartThreadPool(6);
+        MyThreadPool.StartThreadPool(10);
         StartCoroutine("Train");
     }
 
     // train the neural networks environment
     IEnumerator Train()
     {
+        bool complexify = true;
+        int index = 0;
+
         // Create the initial neural networks
         generationNetworks = ga.CreateNetworks();
         raceManager.Reset();
 
         FitnessTracker.totLength = 0;
-        TrackManager.trackManager.SetTotalLength();
+
+        for(int i = 0; i < LoadTrackManager.instance.selectedTrackNames.Count; i++)
+        {
+            trackManagers.Add(Instantiate(trackPrefab).GetComponent<TrackManager>());
+            trackManagers[i].Initialize(LoadTrackManager.instance.selectedTrackNames[i]);
+            trackManagers[i].gameObject.SetActive(false);
+            
+        }
+        TrackManager.SetTotalLength();
+
         // Training loop. Keep the training running as long as desired.
         while (true)
         {
@@ -85,18 +107,37 @@ public class CarTrainer : MonoBehaviour
             {
                 raceManager.AddAIPlayer(individual.ToString(), generationNetworks[individual]);
             }
-            yield return StartCoroutine(raceManager.StartRace(true, LoadTrackManager.instance.selectedTrackNames, false));
+            yield return StartCoroutine(raceManager.StartRace(true, trackManagers, false));
 
             // Get the fitnesses of the networks and calculate the sum of all fitnesses
             fitnesses = raceManager.GetFitnesses();
-            bestFitnessSoFar = 0;
+            int bestRacerIndex = 0;
+            bool updateTime = false;
             for (int i = 0; i < fitnesses.Count; i++)
             {
-                if (fitnesses[i] > bestFitnessSoFar)
+                if (fitnesses[i] >= bestFitnessSoFar)
+                {
                     bestFitnessSoFar = fitnesses[i];
+                    bestRacerIndex = i;
+                    updateTime = true;
+                    bestGeneration = curGeneration;
+                }
 
+                if (fitnesses[i] < 0)
+                {
+                    fitnesses[i] = 0;
+                }
                 sum += fitnesses[i];
             }
+            float currentBestFitness = 0;
+            for (int i = 0; i < fitnesses.Count; i++)
+            {
+                if (fitnesses[i] >= currentBestFitness)
+                {
+                    currentBestFitness = fitnesses[i];
+                }
+            }
+
             curGeneration++;
 
             // Restart the simulation if non of the cars has a fitness higher than 0
@@ -107,12 +148,25 @@ public class CarTrainer : MonoBehaviour
                 generationNetworks = ga.CreateNetworks();
                 continue;
             }
+            float totalTime = raceManager.GetCurrentCompetingCars()[bestRacerIndex].totalTime;
+            if (raceManager.GetCurrentCompetingCars()[bestRacerIndex].GetFitnessTracker().finished != LoadTrackManager.instance.selectedTrackNames.Count)
+                totalTime = -1;
 
             // Update the best and average fitness on the UI
-            UIController.instance.UpdateUI(bestFitnessSoFar, sum / ga.populationSize, curGeneration);
+            UIController.instance.UpdateUI(bestFitnessSoFar, currentBestFitness, sum / ga.populationSize, curGeneration, totalTime, updateTime);
 
             // Determine the population for the next generation based on the fitnesses of the current networks
-            generationNetworks = ga.DoGeneration(fitnesses);
+            generationNetworks = ga.DoGeneration(fitnesses, complexify);
+
+            index++;
+            if (index > 50)
+            {
+                index = 0;
+                if (complexify && Random.Range(0f, 1f) < 0.3f)
+                    complexify = !complexify;
+                else if (!complexify)
+                    complexify = !complexify;
+            }
         }
     }
 
@@ -133,7 +187,7 @@ public class CarTrainer : MonoBehaviour
     void InitializeNetworks()
     {
         pause = false;
-        ga = new GeneticAlgorithm(GA_Parameters.populationSize, GA_Parameters.inputs + 1, 1, new int[1] { 12 }, GA_Parameters.outputs);
+        ga = new GeneticAlgorithm(GA_Parameters.populationSize, GA_Parameters.inputs + 1, GA_Parameters.outputs);
     }
 
     private void OnDestroy()

@@ -106,8 +106,15 @@ public class MainMenuController : MonoBehaviour
 
     public LoadTrackManagerDuringTraining loadManagerDuringTraining;
 
+    private void Awake()
+    {
+        Screen.SetResolution(1920, 1080, true);
+
+    }
     void Start()
     {
+        Screen.SetResolution(1920, 1080, true);
+
         InitializeMainMenu();
         InitializeNetworkSelectorPanel();
         InitializeTrainingOptions();
@@ -168,8 +175,6 @@ public class MainMenuController : MonoBehaviour
 
     void SelectorTrack()
     {
-        TrackManager manager = Instantiate(trackPrefab).GetComponent<TrackManager>();
-
         trainingCanvas.SetActive(true);
         CarTrainer.instance.StartSim();
         RacingCanvasController.toTrain = true;
@@ -216,15 +221,13 @@ public class MainMenuController : MonoBehaviour
 
         if (loadNetworksManager.currentNetworks.Count != 0)
         {
-            loadNetworksManager.currentNetworks[0].DestroyNetwork();
             loadNetworksManager.currentNetworks.Clear();
         }
     }
 
     void SelectorNetworkBack()
     {
-        if(loadNetworksManager.currentNetworks.Count == 1)
-            loadNetworksManager.currentNetworks[0].DestroyNetwork();
+
         networkSelectorMenu.SetActive(false);
         mainPanel.SetActive(true);
         loadNetworksManager.currentNetworks.Clear();

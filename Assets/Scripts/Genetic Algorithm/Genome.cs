@@ -22,6 +22,11 @@ public class Genome
     static MutParameters newMutPar;
     List<Perceptron> newPerceptronsObjects = new List<Perceptron>();
 
+    int nodeGeneIndex = 0;
+    int connectionGeneIndex = 0;
+
+    public static List<Genome> freeGenomes = new List<Genome>();
+
     public Genome()
     {
         network = null;
@@ -51,7 +56,6 @@ public class Genome
         this.outputs = outputs;
         amountToSpawn = 0;
         species = 0;
-        //Random.InitState((int)System.DateTime.Now.Ticks);
 
         perceptrons = new List<NodeGene>();
         connections = new List<ConnectionGene>();
@@ -60,9 +64,7 @@ public class Genome
         {
             perceptrons.Add(new NodeGene(NodeType.Sensor, i, new Vector2(0, (float)i / inputs)));
         }
-
         perceptrons.Add(new NodeGene(NodeType.Bias, inputs, new Vector2(0, 1), false));
-
         for (int i = 0; i < outputs; i++)
         {
             perceptrons.Add(new NodeGene(NodeType.Output, i + inputs + 1, new Vector2(1, (float)i / (outputs - 1))));
@@ -188,7 +190,7 @@ public class Genome
         for (int i = 0; i < genome.perceptrons.Count; i++)
         {
             NodeGene curGene = genome.perceptrons[i];
-            perceptrons.Add(new NodeGene(curGene.type, curGene.ID, curGene.splitValues, curGene.recurrent, curGene.actResponse));
+            perceptrons.Add(new NodeGene(curGene.type, curGene.ID, curGene.splitValues, curGene.actResponse, curGene.recurrent));
         }
 
         connections = new List<ConnectionGene>();
@@ -197,6 +199,7 @@ public class Genome
             ConnectionGene curGene = genome.connections[i];
             connections.Add(new ConnectionGene(curGene.from, curGene.to, curGene.enabled, curGene.innovNum, curGene.weight, curGene.recurrent));
         }
+
         inputs = genome.inputs;
         outputs = genome.outputs;
         fitness = genome.fitness;
@@ -205,6 +208,66 @@ public class Genome
         species = genome.species;
 
         mutPar = genome.mutPar;
+
+    }
+   
+    public void SetGenome(Genome genome)
+    {
+        nodeGeneIndex = 0;
+        connectionGeneIndex = 0;
+        ID = genome.ID;
+        for (int i = 0; i < genome.perceptrons.Count; i++)
+        {
+            NodeGene curGene = genome.perceptrons[i];
+            AddNodeGene(curGene);
+        }
+
+        connections = new List<ConnectionGene>();
+        for (int i = 0; i < genome.connections.Count; i++)
+        {
+            ConnectionGene curGene = genome.connections[i];
+            AddConnectionGeneGene(curGene);
+        }
+
+        for (int i = perceptrons.Count - 1; i >= nodeGeneIndex ; i--)
+        {
+            perceptrons.RemoveAt(i);
+        }
+
+        for (int i = connections.Count - 1; i >= connectionGeneIndex; i--)
+        {
+            connections.RemoveAt(i);
+        }
+
+        inputs = genome.inputs;
+        outputs = genome.outputs;
+        fitness = genome.fitness;
+        adjustedFitness = genome.adjustedFitness;
+        amountToSpawn = genome.amountToSpawn;
+        species = genome.species;
+
+        mutPar = genome.mutPar;
+    }
+
+    public void AddNodeGene(NodeGene gene)
+    {
+        if (nodeGeneIndex < perceptrons.Count)
+            perceptrons[nodeGeneIndex].SetGene(gene);
+        else
+            perceptrons.Add(new NodeGene(gene));
+
+        nodeGeneIndex++;
+
+    }
+
+    public void AddConnectionGeneGene(ConnectionGene gene)
+    {
+        if (connectionGeneIndex < connections.Count)
+            connections[connectionGeneIndex].SetGene(gene);
+        else
+            connections.Add(new ConnectionGene(gene));
+
+        connectionGeneIndex++;
 
     }
 
@@ -217,29 +280,26 @@ public class Genome
     }
 
     // Unit Tested
-    public NeuralNetwork CreateNetwork()
+    public NeuralNetwork CreateNetwork(bool bestOfAll = false, bool leader = false)
     {
+        //newPerceptronsObjects.Clear();
+        while (perceptrons.Count < newPerceptronsObjects.Count)
+            newPerceptronsObjects.RemoveAt(newPerceptronsObjects.Count - 1);
 
-        newPerceptronsObjects.Clear();
-        for(int i = 0; i < this.perceptrons.Count; i++)
+        for (int i = 0; i < this.perceptrons.Count; i++)
         {
-            if (newPerceptrons.Count <= i)
+            if (i < newPerceptronsObjects.Count)
             {
-                Perceptron perceptron = new Perceptron(this.perceptrons[i].type,
-                                                        this.perceptrons[i].ID,
-                                                        this.perceptrons[i].splitValues,
-                                                        this.perceptrons[i].actResponse);
-                newPerceptronsObjects.Add(perceptron);
+                newPerceptronsObjects[i].SetPerceptron(perceptrons[i]);
+
             }
             else
             {
-                Perceptron perceptron = new Perceptron(this.perceptrons[i].type,
-                                                        this.perceptrons[i].ID,
-                                                        this.perceptrons[i].splitValues,
-                                                        this.perceptrons[i].actResponse);
-                newPerceptronsObjects.Add(perceptron);
+                Perceptron perceptron = new Perceptron(perceptrons[i]);
 
+                newPerceptronsObjects.Add(perceptron);
             }
+
         }
 
         for (int i = 0; i < connections.Count; i++)
@@ -257,17 +317,16 @@ public class Genome
                 to = newPerceptronsObjects[index];
 
 
-                Link connection = new Link( connections[i].weight,
-                                            from,
-                                            to,
-                                            connections[i].recurrent);
-
-                from.outLinks.Add(connection);
-                to.inLinks.Add(connection);
+                from.AddOutLink(connections[i].weight, from, to, connections[i].recurrent);
+                to.AddInLink(connections[i].weight, from, to, connections[i].recurrent);
             }
+
         }
 
-        network = new NeuralNetwork(ref newPerceptronsObjects, inputs);
+        for (int i = 0; i < newPerceptronsObjects.Count; i++)
+            newPerceptronsObjects[i].Finish();
+
+        network = new NeuralNetwork(ref newPerceptronsObjects, inputs, bestOfAll, leader);
         return network;
     }
 
@@ -311,9 +370,9 @@ public class Genome
         {
             while(trysToFindLoop > 0)
             {
-                int percepPos = Random.Range(inputs + 1, perceptrons.Count - 1);
+                int percepPos = Random.Range(inputs, perceptrons.Count - 1);
 
-                if(!perceptrons[percepPos].recurrent && perceptrons[percepPos].type != NodeType.Bias && perceptrons[percepPos].type != NodeType.Sensor)
+                if(!perceptrons[percepPos].recurrent && perceptrons[percepPos].type != NodeType.Bias && perceptrons[percepPos].type != NodeType.Sensor && perceptrons[percepPos].type != NodeType.Output)
                 {
                     percep1 = perceptrons[percepPos].ID;
                     percep2 = percep1;
@@ -321,6 +380,7 @@ public class Genome
                     perceptrons[percepPos].recurrent = true;
 
                     recurrent = true;
+
 
                     trysToFindLoop = 0;
                 }
@@ -333,9 +393,13 @@ public class Genome
             while (trysToAddLink > 0)
             {
                 percep1 = perceptrons[Random.Range(0, perceptrons.Count - 1)].ID;
-                percep2 = perceptrons[Random.Range(inputs + 1, perceptrons.Count - 1)].ID;
+                percep2 = perceptrons[Random.Range(inputs, perceptrons.Count - 1)].ID;
 
-                if(DuplicateLink(percep1, percep2) || percep1 == percep2)
+                if( DuplicateLink(percep1, percep2) || percep1 == percep2 || 
+                    (perceptrons[GetElementPos(percep1)].type == NodeType.Sensor && perceptrons[GetElementPos(percep2)].type == NodeType.Sensor) || 
+                    (perceptrons[GetElementPos(percep1)].type == NodeType.Output && perceptrons[GetElementPos(percep2)].type == NodeType.Output) ||
+                    (perceptrons[GetElementPos(percep1)].type == NodeType.Output && perceptrons[GetElementPos(percep2)].type == NodeType.Sensor) ||
+                    perceptrons[GetElementPos(percep2)].type == NodeType.Sensor)
                 {
                     percep1 = -1;
                     percep2 = -1;
@@ -353,9 +417,10 @@ public class Genome
 
         int innovID = innovation.CheckInnovation(percep1, percep2, InnovationType.Connection);
 
-        if (perceptrons[GetElementPos(percep1)].splitValues.y - perceptrons[GetElementPos(percep2)].splitValues.y > 0.01f)
+        if (perceptrons[GetElementPos(percep1)].splitValues.x - perceptrons[GetElementPos(percep2)].splitValues.x > 0.01f)
+        {
             recurrent = true;
-
+        }
         if(innovID < 0)
         {
             innovation.CreateNewInnovation(percep1, percep2, InnovationType.Connection);
@@ -371,6 +436,42 @@ public class Genome
             ConnectionGene gene = new ConnectionGene(percep1, percep2, true, innovID, Random.Range(-1f, 1f), recurrent);
             connections.Add(gene);
         }
+
+    }
+
+    public void RemoveLink(float mutationRate)
+    {
+        if (Random.Range(0f, 1f) > mutationRate)
+            return;
+
+        int con_num = Random.Range(0, connections.Count);
+        ConnectionGene connection = connections[con_num];
+
+        int from = connection.from;
+        int to = connection.to;
+
+
+        connections.RemoveAt(con_num);
+
+        if (from == to)
+            return;
+
+        int fromIndex = 0;
+        int toIndex = 0;
+        for (int i = 0; i < connections.Count; i++)
+        {
+            if (connections[i].to == to || connections[i].from == to)
+                toIndex++;
+
+            if (connections[i].to == from || connections[i].from == from)
+                fromIndex++;
+        }
+
+        if (fromIndex == 0 && perceptrons[GetElementPos(from)].type == NodeType.Hidden)
+            perceptrons.RemoveAt(GetElementPos(from));
+        if (toIndex == 0 && perceptrons[GetElementPos(to)].type == NodeType.Hidden)
+            perceptrons.RemoveAt(GetElementPos(to));
+
     }
 
     public void AddNeuron(float mutationRate, ref Innovations innovation, int trysFindOldLink)
@@ -485,6 +586,130 @@ public class Genome
                 perceptrons.Add(perceptron);
             }
         }
+
+
+
+    }
+    
+    public void RemoveNeuron(float mutationRate, ref Innovations innovation)
+    {
+        if (Random.Range(0f, 1f) > mutationRate)
+            return;
+        int[] numIn = new int[perceptrons.Count];
+        int[] numOut = new int[perceptrons.Count];
+
+        for (int i = 0; i < connections.Count; i++)
+        {
+            ConnectionGene connection = connections[i];
+            //Debug.Log("To: " + GetElementPos(connection.to) + " From: " + GetElementPos(connection.from) + " Count: " + perceptrons.Count);
+            numIn[GetElementPos(connection.to)]++;
+            numOut[GetElementPos(connection.from)]++;
+        }
+
+        List<int> removalCandidates = new List<int>();
+        for (int i = 0; i < perceptrons.Count; i++)
+        {
+            if ((numIn[i] <= 1 || numOut[i] <= 1) && perceptrons[i].type == NodeType.Hidden)
+            {
+                removalCandidates.Add(i);
+            }
+        }
+
+        if (removalCandidates.Count == 0)
+            return;
+
+        int removePercep = removalCandidates[Random.Range(0, removalCandidates.Count)];
+
+        List<int> inConn = new List<int>();
+        List<int> outConn = new List<int>();
+        int recurrentConn = -1;
+        for (int i = 0; i < connections.Count; i++)
+        {
+            if (GetElementPos(connections[i].from) == removePercep && GetElementPos(connections[i].to) != removePercep)
+            {
+                outConn.Add(i);
+            }
+            else if (GetElementPos(connections[i].to) == removePercep && GetElementPos(connections[i].from) != removePercep)
+            {
+                inConn.Add(i);
+            }
+            else if (GetElementPos(connections[i].to) == removePercep && GetElementPos(connections[i].from) == removePercep)
+                recurrentConn = i;
+        }
+
+        List<ConnectionGene> addConnections = new List<ConnectionGene>();
+        for (int i = 0; i < inConn.Count; i++)
+        {
+            for (int j = 0; j < outConn.Count; j++)
+            {
+                int percep1 = connections[inConn[i]].from;
+                int percep2 = connections[outConn[j]].to;
+
+                if (DuplicateLink(percep1, percep2))
+                    continue;
+
+                int innovID = innovation.CheckInnovation(percep1, percep2, InnovationType.Connection);
+
+                if (innovID < 0)
+                {
+                    innovation.CreateNewInnovation(percep1, percep2, InnovationType.Connection);
+
+                    int id = innovation.NextNumber() - 1;
+
+                    ConnectionGene gene = new ConnectionGene(percep1, percep2, true, id, Random.Range(-1f, 1f), false);
+
+                    addConnections.Add(gene);
+                }
+                else
+                {
+                    ConnectionGene gene = new ConnectionGene(percep1, percep2, true, innovID, Random.Range(-1f, 1f), false);
+                    addConnections.Add(gene);
+                }
+
+            }
+        }
+
+        List<int> removeRange = new List<int>();
+        removeRange.AddRange(inConn);
+        removeRange.AddRange(outConn);
+        if(recurrentConn >= 0)
+            removeRange.Add(recurrentConn);
+
+        removeRange.Sort();
+
+        for (int i = removeRange.Count - 1; i > -1; i--)
+        {
+            connections.RemoveAt(removeRange[i]);
+        }
+
+        for (int i = 0; i > addConnections.Count; i++)
+        {
+            connections.Add(addConnections[i]);
+        }
+
+
+        perceptrons.RemoveAt(removePercep);
+    }
+
+    public void RemoveRecurrent(float mutationRate)
+    {
+        if (Random.Range(0f, 1f) > mutationRate)
+            return;
+
+        List<int> possiblePerceptrons = new List<int>();
+        for (int i = 0; i < perceptrons.Count; i++)
+        {
+            if (perceptrons[i].recurrent)
+                possiblePerceptrons.Add(i);
+        }
+
+        if (possiblePerceptrons.Count == 0)
+            return;
+
+        int index = Random.Range(0, possiblePerceptrons.Count);
+
+        perceptrons[possiblePerceptrons[index]].recurrent = false;
+
     }
 
     bool AlreadyHaveThisNeuronID(int ID)
@@ -587,7 +812,14 @@ public class Genome
 
     public void SortGenes()
     {
-        connections = connections.OrderBy(o => o.innovNum).ToList();
+        //connections = connections.OrderBy(o => o.innovNum).ToList();
+
+        connections.Sort(new System.Comparison<ConnectionGene>((obj1, obj2) =>
+        {
+            int result = obj1.innovNum.CompareTo(obj2.innovNum);
+            return result;
+        }
+        ));
     }
 
     public static Genome Crossover(Genome mum, Genome dad, GeneticAlgorithm ga)
@@ -604,31 +836,47 @@ public class Genome
 
         ConnectionGene selectedGene = null;
 
-        while(!(curMum == mum.connections.Count && curDad == dad.connections.Count))
+        while (!(curMum == mum.connections.Count && curDad == dad.connections.Count))
         {
+            // Dad has more genes
             if (curMum == mum.connections.Count && curDad != dad.connections.Count)
             {
-                if(bestParent == BestParent.dad)
+                if (bestParent == BestParent.dad)
                     selectedGene = dad.GetConnectionGenes()[curDad];
 
                 curDad++;
+
+
+                if (selectedGene == null)
+                    continue;
             }
-            else if(curMum != mum.connections.Count && curDad == dad.connections.Count)
+            // Mum has more genes
+            else if (curMum != mum.connections.Count && curDad == dad.connections.Count)
             {
                 if (bestParent == BestParent.mum)
                     selectedGene = mum.GetConnectionGenes()[curMum];
 
                 curMum++;
+
+
+                if (selectedGene == null)
+                    continue;
             }
-            else if(mum.GetConnectionGenes()[curMum].innovNum < dad.GetConnectionGenes()[curDad].innovNum)
+            // Mum gene innovation number is lower
+            else if (mum.GetConnectionGenes()[curMum].innovNum < dad.GetConnectionGenes()[curDad].innovNum)
             {
-                if(bestParent == BestParent.mum)
+                if (bestParent == BestParent.mum)
                 {
                     selectedGene = mum.GetConnectionGenes()[curMum];
                 }
 
                 curMum++;
+
+
+                if (selectedGene == null)
+                    continue;
             }
+            // Dad gene innovation number is lower
             else if (mum.GetConnectionGenes()[curMum].innovNum > dad.GetConnectionGenes()[curDad].innovNum)
             {
                 if (bestParent == BestParent.dad)
@@ -637,7 +885,12 @@ public class Genome
                 }
 
                 curDad++;
+
+
+                if (selectedGene == null)
+                    continue;
             }
+            // Both innovation numbers are equal
             else if (mum.GetConnectionGenes()[curMum].innovNum == dad.GetConnectionGenes()[curDad].innovNum)
             {
                 if (Random.Range(0f, 1f) > 0.5f)
@@ -648,7 +901,16 @@ public class Genome
                 curDad++;
                 curMum++;
             }
+            else
+            {
+                Debug.Log("wtf");
+            }
 
+            if (selectedGene == null)
+            {
+                Debug.Log("Weird");
+                continue;
+            }
             if (offspringConnections.Count == 0)
                 offspringConnections.Add(selectedGene);
             else
@@ -658,18 +920,25 @@ public class Genome
                     offspringConnections.Add(selectedGene);
                 }
             }
+
+            
             AddPercepID(selectedGene.from, ref newPerceptrons);
             AddPercepID(selectedGene.to, ref newPerceptrons);
+
 
         }
 
         newPerceptrons.Sort();
 
+        for (int i = 0; i < GA_Parameters.inputs + 1; i++)
+            offspringPerceptrons.Add(ga.innovations.CreateNeuronFromID(i));
+        for (int i = 0; i < GA_Parameters.outputs; i++)
+            offspringPerceptrons.Add(ga.innovations.CreateNeuronFromID(GA_Parameters.inputs + 1+ i));
+
         for (int i = 0; i < newPerceptrons.Count; i++)
             offspringPerceptrons.Add(ga.innovations.CreateNeuronFromID(newPerceptrons[i]));
 
         MutParameters mutPar = new MutParameters(mum, dad);
-
 
         Genome offspring = new Genome(ga.nextGenomeID, offspringPerceptrons, offspringConnections, mum.inputs, mum.outputs, mutPar);
         ga.nextGenomeID++;
@@ -723,6 +992,23 @@ public class Genome
         }
 
         return best;
+    }
+
+    public static int RouletteSelection(int n)
+    {
+        n += 1;
+        int index = Random.Range(1,(n * (n + 1) / 2));
+        int temp = 0;
+
+        for (int i = n; i > 0; i--)
+        {
+            temp += (n - (i - 1));
+
+            if (index < temp)
+                return (i - 1);
+        }
+
+        return -1;
     }
 
     public int GetID()

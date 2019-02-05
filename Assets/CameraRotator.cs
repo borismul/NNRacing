@@ -14,6 +14,7 @@ public class CameraRotator : MonoBehaviour {
 	void Update ()
     {
         angle += Time.deltaTime * 50;
+        
         transform.rotation = Quaternion.Euler(0, angle, 0);
 
         if (Input.GetKey(KeyCode.UpArrow))

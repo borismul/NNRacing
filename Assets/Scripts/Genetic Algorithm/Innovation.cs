@@ -56,6 +56,14 @@ public class Innovations
     int nextNeuronID;
     int nextInnovationNumber;
 
+    public Innovations()
+    {
+        nextNeuronID = 0;
+        nextInnovationNumber = 0;
+
+        innovations = new List<Innovation>();
+    }
+
     public Innovations(List<ConnectionGene> links, List<NodeGene> perceptrons)
     {
         nextNeuronID = 0;
@@ -77,6 +85,13 @@ public class Innovations
         }
     }
 
+    public void AddInnovation(NodeGene perceptron)
+    {
+        innovations.Add(new Innovation(perceptron, nextInnovationNumber, nextNeuronID));
+        nextInnovationNumber++;
+        nextNeuronID++;
+    }
+
     public int CheckInnovation(int from, int to, InnovationType type)
     {
         for(int i = 0; i < innovations.Count; i++)
@@ -85,6 +100,17 @@ public class Innovations
             {
                 return innovations[i].ID;
             }
+        }
+
+        return -1;
+    }
+
+    public int CheckInnovation(NodeGene perceptron)
+    {
+        for (int i = 0; i < innovations.Count; i++)
+        {
+            if (innovations[i].percepID == perceptron.ID)
+                return innovations[i].ID;
         }
 
         return -1;

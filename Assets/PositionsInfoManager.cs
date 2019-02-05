@@ -41,7 +41,9 @@ public class PositionsInfoManager : MonoBehaviour {
                         RacingCanvasController.racingCanvas.FinishedCanvas(cars[j]);
                     }
 
-                    GameObject obj = Instantiate(positionsInfoPrefab, transform, true);
+                    GameObject obj = Instantiate(positionsInfoPrefab, transform , true);
+
+
                     curObjs.Add(obj);
                     obj.SetActive(true);
 

@@ -17,7 +17,6 @@ public class RaceManager : MonoBehaviour
     List<CarController> cars = new List<CarController>();
 
     public GameObject carPrefab;
-    public GameObject trackPrefab;
 
     int currentTrackNum;
 
@@ -71,6 +70,8 @@ public class RaceManager : MonoBehaviour
     float simulationTime;
 
     List<CarController> currentCars = new List<CarController>();
+
+    List<GameObject> trackPlanes = new List<GameObject>();
 
     void Awake()
     {
@@ -178,6 +179,7 @@ public class RaceManager : MonoBehaviour
 
     public void AddAIPlayer(string name, NeuralNetwork network)
     {
+        network.Reset();
         aiPlayers.Add(new AIPlayer(name, network));
     }
 
@@ -187,18 +189,16 @@ public class RaceManager : MonoBehaviour
         aiPlayers.Clear();
     }
 
-    public IEnumerator StartRace(bool threaded, List<string> tracks, bool fancy)
+    public IEnumerator StartRace(bool threaded, List<TrackManager> tracks, bool fancy)
     {
         for (int i = 0; i < tracks.Count; i++)
         {
             training = true;
             runRace = false;
 
-            System.GC.Collect();
             UIController.instance.UpdateUI(i, tracks.Count);
 
-            TrackManager.trackManager.trackName = tracks[i];
-            TrackManager.trackManager.LoadTrack(fancy);
+            tracks[i].gameObject.SetActive(true);
 
             carsLocker = new object[GA_Parameters.populationSize];
 
@@ -216,7 +216,6 @@ public class RaceManager : MonoBehaviour
 
             if (threaded)
             {
-
                 training = true;
                 runRace = false;
                 Coroutine routine = StartCoroutine(ThreadedRace(humanPlayers.Count > 0));
@@ -234,7 +233,63 @@ public class RaceManager : MonoBehaviour
                     yield return routine;
                 }
                 ResetRaceParameters();
-                curTime = Time.realtimeSinceStartup; ;
+                curTime = Time.realtimeSinceStartup;
+                training = false;
+                runRace = true;
+            }
+
+            tracks[i].gameObject.SetActive(false);
+
+        }
+    }
+
+    public IEnumerator StartRace(bool threaded, List<string> tracks, bool fancy)
+    {
+        for (int i = 0; i < tracks.Count; i++)
+        {
+            training = true;
+            runRace = false;
+
+            //UIController.instance.UpdateUI(i, tracks.Count);
+            //CarTrainer.instance.trackManagers[0].gameObject.SetActive(true);
+
+            TrackManager.LoadTrack(fancy, tracks[i]);
+
+
+            //carsLocker = new object[GA_Parameters.populationSize];
+
+            //for (int cars = 0; cars < carsLocker.Length; cars++)
+            //{
+            //    carsLocker[cars] = new object();
+            //}
+
+            CreateCars(!threaded);
+            AddPlayers();
+            SetCarsReady(threaded, i == 0);
+            AdjustViewSettings();
+
+            yield return null;
+
+            if (threaded)
+            {
+                training = true;
+                runRace = false;
+                Coroutine routine = StartCoroutine(ThreadedRace(humanPlayers.Count > 0));
+                UIController.instance.activeRoutines.Add(routine);
+                yield return routine;
+                UpdateFitnesses();
+            }
+            else
+            {
+                if (humanPlayers.Count > 0)
+                {
+                    cameraController.UpdateTransform();
+                    Coroutine routine = StartCoroutine(cameraController.raceCanvas.CountDown());
+                    UIController.instance.activeRoutines.Add(routine);
+                    yield return routine;
+                }
+                ResetRaceParameters();
+                curTime = Time.realtimeSinceStartup;
                 training = false;
                 runRace = true;
             }
@@ -269,14 +324,6 @@ public class RaceManager : MonoBehaviour
             yield return null;
         }
 
-    }
-
-    void CreateTrack()
-    {
-        if (currentTrackObj != null)
-            Destroy(currentTrackObj);
-
-        currentTrackObj = Instantiate(trackPrefab);
     }
 
     void CreateCars(bool destroyFirst)
@@ -316,10 +363,15 @@ public class RaceManager : MonoBehaviour
                     if (!threaded)
                         continue;
 
-                    if (i == 0)
+                    if (cars[i].aIPlayer.network.bestOfAll)
                     {
                         cars[i].trackSphereMat.color = new Color(255, 215, 0);
                         cars[i].trailren.material.color = new Color(255, 215, 0);
+                    }
+                    else if (cars[i].aIPlayer.network.leader)
+                    {
+                        cars[i].trackSphereMat.color = new Color(192, 192, 192);
+                        cars[i].trailren.material.color = new Color(192, 192, 192);
                     }
                     else
                     {
@@ -417,6 +469,22 @@ public class RaceManager : MonoBehaviour
 
     }
 
+    public float GetBestRaceTime()
+    {
+        float bestTime = 999999999999999999999999999f;
+
+        for (int i = 0; i < cars.Count; i++)
+        {
+            if (cars[i].isActiveAndEnabled)
+            {
+                if (cars[i].GetFitnessTracker().time < bestTime)
+                    bestTime = cars[i].GetFitnessTracker().time;
+            }
+        }
+
+        return bestTime;
+    }
+
     // Method that starts a race
     void Race(float deltaTime)
     {
@@ -472,18 +540,12 @@ public class RaceManager : MonoBehaviour
             yield return routine;
 
         }
-        ResetRaceParameters();
-        if (GA_Parameters.simulationTime != 0)
-        {
-            simulationTime = GA_Parameters.simulationTime;
-            CreateThreadActions((int)(simulationTime));
-        }
-        else
-        {
-            simulationTime = TrackManager.trackManager.GetTrack().raceTime;
-            CreateThreadActions((int)(simulationTime));
 
-        }
+        ResetRaceParameters();
+        simulationTime = GA_Parameters.simulationTime;
+        CreateThreadActions((int)(simulationTime));
+        //ThreadedRace((int)simulationTime);
+
         while (true)
         {
 
@@ -492,6 +554,8 @@ public class RaceManager : MonoBehaviour
             // Show a frame if the framerate drops under the training framerate
             if (Time.realtimeSinceStartup - curTime > 1f / GA_Parameters.fps)
             {
+
+
                 yield return null;
 
                 if (countSinceFrame != 0)
@@ -526,7 +590,10 @@ public class RaceManager : MonoBehaviour
 
 
                     if (!carDone[carControllerindex])
+                    {
+
                         yield return null;
+                    }
 
                     if (countSinceFrame != 0)
                         curSpeed = countSinceFrame / (GA_Parameters.fps * (Time.realtimeSinceStartup - curTime));
@@ -536,10 +603,13 @@ public class RaceManager : MonoBehaviour
                     curTime = Time.realtimeSinceStartup;
                 }
 
-                if (cars[carControllerindex].IsDone() && carControllerindex != 0 && !carDone[carControllerindex])
+                if (cars[carControllerindex].IsDone() && !carDone[carControllerindex])
                 {
-                    cars[carControllerindex].trackSphereMat.color = Color.red;
-                    cars[carControllerindex].trailren.material.color = Color.red;
+                    if (!cars[carControllerindex].aIPlayer.network.bestOfAll && !cars[carControllerindex].aIPlayer.network.leader)
+                    {
+                        cars[carControllerindex].trackSphereMat.color = Color.red;
+                        cars[carControllerindex].trailren.material.color = Color.red;
+                    }
 
                     carDone[carControllerindex] = true;
                 }
@@ -802,4 +872,5 @@ public class RaceManager : MonoBehaviour
             cars[i].ClearTrail();
         }
     }
+
 }

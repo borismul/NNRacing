@@ -63,6 +63,8 @@ public class RacingCanvasController : MonoBehaviour {
 
     bool paused = false;
 
+    public Text fitnessText;
+
     void Awake()
     {
         racingCanvas = this;
@@ -155,7 +157,7 @@ public class RacingCanvasController : MonoBehaviour {
         
     }
 
-    public void UpdateCanvas(CarController car, float time)
+    public void UpdateCanvas(CarController car, float time, float fitness)
     {
         raceCanvas.SetActive(true);
         finishCanvas.SetActive(false);
@@ -179,6 +181,9 @@ public class RacingCanvasController : MonoBehaviour {
             positionPanel.SetActive(false);
 
         speed.text = Mathf.RoundToInt(car.GetCurrentVelocity()).ToString();
+
+        if (car.aIPlayer == null)
+            fitnessText.text = fitness.ToString("0.00");
 
     }
 
@@ -204,7 +209,6 @@ public class RacingCanvasController : MonoBehaviour {
 
     }
 
-
     void BackToMain()
     {
         UnPause();
@@ -218,6 +222,7 @@ public class RacingCanvasController : MonoBehaviour {
         CameraController.instance.gameObject.SetActive(false);
         gameObject.SetActive(false);
         UIController.instance.ResetPlay();
+        TrackManager.DeleteTrack();
         RaceManager.raceManager.SetViewSettings(RaceManager.ViewType.MenuView, true);
     }
 

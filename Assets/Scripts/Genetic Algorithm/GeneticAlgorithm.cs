@@ -46,12 +46,10 @@ public class GeneticAlgorithm
             genomes.Add(new Genome(nextGenomeID, inputs, outputs, new Genome.MutParameters()));
             nextGenomeID++;
         }
-
         Genome genome = new Genome(1, inputs, outputs, new Genome.MutParameters());
 
         innovations = new Innovations(genome.GetConnectionGenes(), genome.GetPerceptronGenes());
 
-        GA_Parameters.maxSpecies = GA_Parameters.populationSize - 1;
     }
 
     public GeneticAlgorithm(int size, int inputs, int hidden, int[] hiddenNodes, int outputs)
@@ -96,40 +94,88 @@ public class GeneticAlgorithm
         return networks;
     }
 
-    public List<NeuralNetwork> DoGeneration(List<float> fitnesses)
+    public List<NeuralNetwork> DoGeneration(List<float> fitnesses, bool complexify)
     {
         ResetAndKill();
 
         for (int i = 0; i < genomes.Count; i++)
             genomes[i].SetFitness(fitnesses[i]);
-
         SortAndRecord();
 
         SpeciateAndCaluclateSpawnLevels();
 
         newPopulation.Clear();
 
-        int spawnedSoFar = 0;
 
         Genome offSpring = null;
 
-        float bestFitness = 0;
-        int bestSpeciesIndex = 0;
-        for (int i = 0; i < species.Count; i++)
+        float bestFitness = -10000;
+        int bestSpeciesIndex = -1;
+        //for (int i = 0; i < species.Count; i++)
+        //{
+        //    if (species[i].leader.GetFitness() > bestFitness)
+        //    {
+        //        bestSpeciesIndex = i;
+        //        bestFitness = species[i].leader.GetFitness();
+        //    }
+        //}
+
+        //offSpring = new Genome(species[bestSpeciesIndex].leader);
+        //newPopulation.Add(offSpring);
+
+        if (complexify)
+            Complexify(bestSpeciesIndex);
+        else
+            Simplify(bestSpeciesIndex);
+
+
+        int storeNumber = Mathf.FloorToInt(genomes.Count * GA_Parameters.savePercentage / 100);
+        if (storeNumber == 0)
+            storeNumber = 1;
+
+        oldGenomes.Add(new List<Genome>());
+        for (int i = 0; i < storeNumber; i++)
         {
-            if (species[i].leader.GetFitness() > bestFitness)
+            oldGenomes[oldGenomes.Count-1].Add(genomes[i]);
+        }
+        genomes = newPopulation;
+        newNetworks.Clear();
+
+        for(int i = 0; i< genomes.Count; i++)
+        {
+            bool leader = false;
+            bool bestOfAll = false;
+
+            for (int j = 0; j < species.Count; j++)
             {
-                bestSpeciesIndex = i;
-                bestFitness = species[i].leader.GetFitness();
+                if (i == 0)
+                {
+                    bestOfAll = true;
+                    break;
+                }
+                else if (genomes[i].GetID() == species[j].leader.GetID())
+                {
+                    leader = true;
+                    break;
+
+                }
             }
 
-
+            NeuralNetwork network = genomes[i].CreateNetwork(bestOfAll, leader);
+            newNetworks.Add(network);
         }
 
-        offSpring = new Genome(species[bestSpeciesIndex].leader);
-        newPopulation.Add(offSpring);
-        spawnedSoFar++;
+        currentGeneration++;
 
+        if(Random.Range(0f,1f) > 0.9f)
+            System.GC.Collect();
+        return newNetworks;
+    }
+
+    void Complexify(int bestSpeciesIndex)
+    {
+        int spawnedSoFar = 0;
+        Genome offSpring;
         for (int i = 0; i < species.Count; i++)
         {
             if (spawnedSoFar < GA_Parameters.populationSize)
@@ -149,20 +195,20 @@ public class GeneticAlgorithm
                     {
                         if (species[i].members.Count == 1)
                         {
-                            offSpring = new Genome(species[i].Spawn());
+                            offSpring = species[i].Spawn();
                         }
                         else
                         {
-                            Genome g1 = new Genome(species[i].Spawn());
+                            Genome g1 = species[i].Spawn();
                             if (Random.Range(0f, 1f) < GA_Parameters.crossOverRate)
                             {
-                                Genome g2 = new Genome(species[i].Spawn());
+                                Genome g2 = species[i].Spawn();
 
                                 int attempts = 5;
 
                                 while (g1.GetID() == g2.GetID() && attempts > 0)
                                 {
-                                    g2 = new Genome(species[i].Spawn());
+                                    g2 = species[i].Spawn();
 
                                     attempts--;
                                 }
@@ -178,20 +224,21 @@ public class GeneticAlgorithm
                             {
                                 offSpring = g1;
                             }
-
                         }
 
                         nextGenomeID++;
                         offSpring.SetID(nextGenomeID);
-
-                        if (offSpring.NumPerceptrons() < GA_Parameters.maxPermittedPerceptrons)
-                            offSpring.AddNeuron(offSpring.mutPar.addPercepProb, ref innovations, GA_Parameters.triesToFindLink);
-
-                        offSpring.AddLink(offSpring.mutPar.addLinkProb, offSpring.mutPar.recurAddProb, ref innovations, GA_Parameters.triesToFindLoopedLink, GA_Parameters.addLinkAttempts);
-                        offSpring.MutateWeights(offSpring.mutPar.weightMutRate, offSpring.mutPar.weightRepProb, offSpring.mutPar.maxWeightPerturbation);
-
-                        offSpring.MutateActivationResponse(offSpring.mutPar.activationMutationChance, offSpring.mutPar.maxActivationPerturbation);
                     }
+
+
+
+                    if (offSpring.NumPerceptrons() < GA_Parameters.maxPermittedPerceptrons)
+                        offSpring.AddNeuron(offSpring.mutPar.addPercepProb, ref innovations, GA_Parameters.triesToFindLink);
+
+                    offSpring.AddLink(offSpring.mutPar.addLinkProb, offSpring.mutPar.recurAddProb, ref innovations, GA_Parameters.triesToFindLoopedLink, GA_Parameters.addLinkAttempts);
+                    offSpring.MutateWeights(offSpring.mutPar.weightMutRate, offSpring.mutPar.weightRepProb, offSpring.mutPar.maxWeightPerturbation);
+
+                    offSpring.MutateActivationResponse(offSpring.mutPar.activationMutationChance, offSpring.mutPar.maxActivationPerturbation);
                     offSpring.SortGenes();
 
                     newPopulation.Add(offSpring);
@@ -205,32 +252,77 @@ public class GeneticAlgorithm
             }
         }
 
-        if(spawnedSoFar < populationSize)
+        if (spawnedSoFar < populationSize)
         {
             int required = GA_Parameters.populationSize - spawnedSoFar;
 
-            while(required > 0)
+            while (required > 0)
             {
                 newPopulation.Add(TournamentSelection(populationSize / 5));
                 required--;
             }
         }
+    }
 
-        int storeNumber = Mathf.FloorToInt(genomes.Count * GA_Parameters.savePercentage / 100);
-        if (storeNumber == 0)
-            storeNumber = 1;
-        oldGenomes.Add(genomes.GetRange(0, storeNumber));
-        genomes = newPopulation;
-        newNetworks.Clear();
-
-        for(int i = 0; i< genomes.Count; i++)
+    void Simplify(int bestSpeciesIndex)
+    {
+        int spawnedSoFar = 0;
+        Genome offSpring;
+        for (int i = 0; i < species.Count; i++)
         {
-            NeuralNetwork network = genomes[i].CreateNetwork();
-            newNetworks.Add(network);
+            if (spawnedSoFar < GA_Parameters.populationSize)
+            {
+                int NumToSpawn = Mathf.RoundToInt(species[i].spawnsRequired);
+                bool chosenBestYet = false;
+
+                while (NumToSpawn > 0)
+                {
+                    offSpring = null;
+                    if (!chosenBestYet && i != bestSpeciesIndex)
+                    {
+                        offSpring = new Genome(species[i].leader);
+                        chosenBestYet = true;
+                    }
+                    else
+                    {
+                        offSpring = species[i].Spawn();
+
+                        nextGenomeID++;
+                        offSpring.SetID(nextGenomeID);
+
+
+                    }
+
+                    offSpring.RemoveNeuron(offSpring.mutPar.addPercepProb, ref innovations);
+
+                    offSpring.RemoveLink(offSpring.mutPar.addLinkProb);
+                    offSpring.RemoveRecurrent(offSpring.mutPar.recurAddProb);
+                    offSpring.MutateWeights(offSpring.mutPar.weightMutRate, offSpring.mutPar.weightRepProb, offSpring.mutPar.maxWeightPerturbation);
+
+                    offSpring.MutateActivationResponse(offSpring.mutPar.activationMutationChance, offSpring.mutPar.maxActivationPerturbation);
+                    offSpring.SortGenes();
+
+                    newPopulation.Add(offSpring);
+                    spawnedSoFar++;
+
+                    if (spawnedSoFar == GA_Parameters.populationSize)
+                        NumToSpawn = 0;
+
+                    NumToSpawn--;
+                }
+            }
         }
 
-        currentGeneration++;
-        return newNetworks;
+        if (spawnedSoFar < populationSize)
+        {
+            int required = GA_Parameters.populationSize - spawnedSoFar;
+
+            while (required > 0)
+            {
+                newPopulation.Add(TournamentSelection(populationSize / 5));
+                required--;
+            }
+        }
     }
 
     Genome TournamentSelection(int numComparisons)

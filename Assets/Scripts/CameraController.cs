@@ -83,8 +83,11 @@ public class CameraController : MonoBehaviour
     // Method that lets the camera follow the current carFollowObject
     public void UpdateTransform(float dTime = 1f/60)
     {
-        if (currentFollowCar != null &&currentFollowCar.finished)
+        if (currentFollowCar != null && currentFollowCar.finished)
+        {
+            raceCanvas.UpdateCanvas(currentFollowCar, RaceManager.raceManager.GetTotalTime(), currentFollowCar.GetFitnessTracker().GetFitness());
             SetNextFollowCar(true);
+        }
 
         if (RaceManager.raceManager.curViewType == RaceManager.ViewType.MenuView)
             followCars = null;
@@ -103,7 +106,7 @@ public class CameraController : MonoBehaviour
         }
 
         raceCanvas.gameObject.SetActive(true);
-        raceCanvas.UpdateCanvas(currentFollowCar, RaceManager.raceManager.GetTotalTime());
+        raceCanvas.UpdateCanvas(currentFollowCar, RaceManager.raceManager.GetTotalTime(), currentFollowCar.GetFitnessTracker().GetFitness());
 
         if (Vector3.Distance(transform.position, followObjects[(int)followObjectIndex].transform.position) > 5)
         {

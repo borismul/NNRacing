@@ -22,7 +22,7 @@ public class LoadNetworksManager : MonoBehaviour {
 
     public string selectedNetworkName;
 
-    public List<NeuralNetwork> currentNetworks = new List<NeuralNetwork>();
+    public List<Genome> currentNetworks = new List<Genome>();
 
     public Text loadPanelText;
 
@@ -78,7 +78,7 @@ public class LoadNetworksManager : MonoBehaviour {
     void SetButtonAction(string name, int index)
     {
         if (currentNetworks.Count == 1)
-            currentNetworks[0].DestroyNetwork();
+            currentNetworks.Clear();
         
         Genome genome = SaveableObjects.SaveableNeuralNetwork.LoadNetwork(name);
 
@@ -95,7 +95,7 @@ public class LoadNetworksManager : MonoBehaviour {
             {
                 activeButtons.Add(currentButtons[index]);
                 currentButtons[index].GetComponent<Image>().color = Color.grey;
-                currentNetworks.Add(genome.CreateNetwork());
+                currentNetworks.Add(genome);
             }
         }
         else
@@ -118,13 +118,13 @@ public class LoadNetworksManager : MonoBehaviour {
                 currentButtons[index].GetComponent<Image>().color = Color.grey;
                 activeButtons.Clear();
                 currentNetworks.Clear();
-                currentNetworks.Add(genome.CreateNetwork());
+                currentNetworks.Add(genome);
                 activeButtons.Add(currentButtons[index]);
             }
         }
 
         if(currentNetworks.Count == 1)
-            currentNetworks[0].VisualizeNetwork(NetworkPanel.GetComponent<RectTransform>(), perceptron, line, loopLink, false);
+            currentNetworks[0].CreateNetwork().VisualizeNetwork(NetworkPanel.GetComponent<RectTransform>(), perceptron, line, loopLink, false);
 
         selectedNetworkName = name;
 

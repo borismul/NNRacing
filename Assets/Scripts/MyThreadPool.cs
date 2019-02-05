@@ -155,7 +155,6 @@ public class PoolThread
         {
             SetWaitingThreads(true);
             threadCanStart.WaitOne();
-            Debug.Log("running thread: " + threadNum.ToString());
 
             if (MyThreadPool.abort)
                 thread.Abort();

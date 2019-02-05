@@ -18,9 +18,13 @@ public class NeuralNetwork
     float neuronOutput;
     public int inputs;
     List<Perceptron> outPerceptrons = new List<Perceptron>();
+    public bool bestOfAll;
+    public bool leader;
 
-    public NeuralNetwork(ref List<Perceptron> perceptrons, int inputs)
+    public NeuralNetwork(ref List<Perceptron> perceptrons, int inputs, bool bestOfAll = false, bool leader = false)
     {
+        this.bestOfAll = bestOfAll;
+        this.leader = leader;
         this.perceptrons = perceptrons;
         this.inputs = inputs;
     }
@@ -36,9 +40,6 @@ public class NeuralNetwork
             perceptron++;
         }
 
-        perceptrons[perceptron].output = 1;
-        perceptron++;
-        
         while (perceptron < perceptrons.Count)
         {
             curPerceptron = perceptrons[perceptron];
@@ -61,7 +62,7 @@ public class NeuralNetwork
             if (curPerceptron.type != NodeType.Output)
             {
                 curPerceptron.lastOutput = curPerceptron.output;
-                curPerceptron.output = ReLu(curPerceptron.SumActivation, curPerceptron.activationResponse);
+                curPerceptron.output = Sigmoid(curPerceptron.SumActivation, curPerceptron.activationResponse);
             }
             else
             {
@@ -76,12 +77,12 @@ public class NeuralNetwork
 
     float Sigmoid(float input, float response)
     {
-        return (1f / (1f + Mathf.Exp(-input / response)));
+        return (1f / (1f + Mathf.Exp(-(input +  response))));
     }
 
     float Step(float input, float response)
     {
-        if (input - response > 0)
+        if (input + response > 0)
             return 1;
         else
             return 0;
@@ -89,10 +90,10 @@ public class NeuralNetwork
 
     float ReLu(float input, float response)
     {
-        if (input - response < 0)
+        if (input + response < 0)
             return 0;
         else
-            return (input - response);
+            return (input + response);
     }
 
     void SoftMax(List<Perceptron> outputsPerceptrons)
@@ -131,8 +132,6 @@ public class NeuralNetwork
             perceptrons[i].output = 0;
         }
     }
-
-    
 
     // Unit tested
     public void VisualizeNetwork(RectTransform panel, GameObject perceptronPrefab, GameObject linkPrefab, GameObject loopPrefab, bool play)
@@ -264,6 +263,10 @@ public class Perceptron
     public Vector2 pos;
     public Vector2 splitValues;
 
+    int outLinkAddIndex = 0;
+    int inLinkAddIndex = 0;
+
+
     public Perceptron(NodeType type, int ID, Vector2 splitValues, float activationResponse)
     {
         this.type = type;
@@ -278,27 +281,77 @@ public class Perceptron
 
         inLinks = new List<Link>();
         outLinks = new List<Link>();
+
+        outLinkAddIndex = 0;
+        inLinkAddIndex = 0;
+
+
     }
 
-    public Perceptron SetPerceptron(NodeGene perceptron)
+    public Perceptron(NodeGene perceptronGene)
     {
-        this.type = perceptron.type;
-        this.ID = perceptron.ID;
-        this.splitValues = perceptron.splitValues;
-        this.activationResponse = perceptron.actResponse;
+        type = perceptronGene.type;
+        ID = perceptronGene.ID;
+        splitValues = perceptronGene.splitValues;
+        activationResponse = perceptronGene.actResponse;
 
         SumActivation = 0;
         output = 0;
         lastOutput = 0;
         pos = Vector2.zero;
 
-        inLinks.Clear();
-        outLinks.Clear();
+        inLinks = new List<Link>();
+        outLinks = new List<Link>();
 
-        return this;
+        outLinkAddIndex = 0;
+        inLinkAddIndex = 0;
     }
 
+    public void SetPerceptron(NodeGene perceptronGene)
+    {
+        type = perceptronGene.type;
+        ID = perceptronGene.ID;
+        splitValues = perceptronGene.splitValues;
+        activationResponse = perceptronGene.actResponse;
 
+        SumActivation = 0;
+        output = 0;
+        lastOutput = 0;
+        pos = Vector2.zero;
+
+        outLinkAddIndex = 0;
+        inLinkAddIndex = 0;
+    }
+
+    public void AddOutLink(float weight, Perceptron from, Perceptron to, bool recurrent)
+    {
+        if (outLinkAddIndex < outLinks.Count)
+            outLinks[outLinkAddIndex].SetLink(weight, from, to, recurrent);
+        else
+            outLinks.Add(new Link(weight, from, to, recurrent));
+
+        outLinkAddIndex++;
+    }
+
+    public void AddInLink(float weight, Perceptron from, Perceptron to, bool recurrent)
+    {
+        if (inLinkAddIndex < inLinks.Count)
+            inLinks[inLinkAddIndex].SetLink(weight, from, to, recurrent);
+        else
+            inLinks.Add(new Link(weight, from, to, recurrent));
+
+        inLinkAddIndex++;
+    }
+
+    public void Finish()
+    {
+        for (int i = outLinks.Count - 1; i >= outLinkAddIndex; i--)
+            outLinks.RemoveAt(i);
+
+        for (int i = inLinks.Count - 1; i >= inLinkAddIndex; i--)
+            inLinks.RemoveAt(i);
+
+    }
 }
 
 public class Link
@@ -311,6 +364,14 @@ public class Link
     public bool recurrent;
 
     public Link(float weight, Perceptron from, Perceptron to, bool recurrent)
+    {
+        this.weight = weight;
+        this.from = from;
+        this.to = to;
+        this.recurrent = recurrent;
+    }
+
+    public void SetLink(float weight, Perceptron from, Perceptron to, bool recurrent)
     {
         this.weight = weight;
         this.from = from;

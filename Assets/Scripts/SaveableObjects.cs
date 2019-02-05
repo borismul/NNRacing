@@ -16,12 +16,11 @@ public class SaveableObjects {
         public int texHeight;
         public float time;
 
-        public SaveableTrack(string name, Texture2D texture, List<TrackPoint> trackPoints, float time)
+        public SaveableTrack(string name, Texture2D texture, List<TrackPoint> trackPoints)
         {
             this.name = name;
             this.texture = texture.EncodeToPNG();
             this.trackPoints = new SerializableVector3[trackPoints.Count];
-            this.time = time;
             texWidth = texture.width;
             texHeight = texture.height;
 
@@ -37,7 +36,7 @@ public class SaveableObjects {
     {
         try
         {
-            SaveableTrack saveableTrack = new SaveableTrack(track.trackName, track.texture, track.trackPoints, track.raceTime);
+            SaveableTrack saveableTrack = new SaveableTrack(track.trackName, track.texture, track.trackPoints);
             BinaryFormatter bf = new BinaryFormatter();
             Directory.CreateDirectory(Application.persistentDataPath + "/Tracks/");
             FileStream file = File.Create(Application.persistentDataPath + "/Tracks/" + saveableTrack.name + ".trk");
@@ -70,7 +69,7 @@ public class SaveableObjects {
                 trackpoints.Add(saveableTrack.trackPoints[i].GetVector3());
             }
 
-            Track track = new Track(saveableTrack.name, tex, trackpoints, saveableTrack.time);
+            Track track = new Track(saveableTrack.name, tex, trackpoints);
             file.Close();
             return track;
 
@@ -108,7 +107,7 @@ public class SaveableObjects {
 
             for(int i = 0; i < genes.ID.Length; i++)
             {
-                nodes.Add(new NodeGene(genes.type[i], genes.ID[i], new Vector2(genes.splitX[i], genes.splitY[i]), genes.recurrent[i], genes.actResponse[i]));
+                nodes.Add(new NodeGene(genes.type[i], genes.ID[i], new Vector2(genes.splitX[i], genes.splitY[i]), genes.actResponse[i], genes.recurrent[i]));
             }
 
             for(int i = 0; i < genes.from.Length; i++)
