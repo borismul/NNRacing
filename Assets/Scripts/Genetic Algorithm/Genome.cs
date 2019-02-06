@@ -25,7 +25,7 @@ public class Genome
     int nodeGeneIndex = 0;
     int connectionGeneIndex = 0;
 
-    public static List<Genome> freeGenomes = new List<Genome>();
+    public static List<Genome> genomePool;
 
     public Genome()
     {
@@ -222,32 +222,104 @@ public class Genome
             AddNodeGene(curGene);
         }
 
-        connections = new List<ConnectionGene>();
         for (int i = 0; i < genome.connections.Count; i++)
         {
             ConnectionGene curGene = genome.connections[i];
             AddConnectionGeneGene(curGene);
         }
 
-        for (int i = perceptrons.Count - 1; i >= nodeGeneIndex ; i--)
+        for (int i = perceptrons.Count - 1; i > nodeGeneIndex - 1; i--)
         {
             perceptrons.RemoveAt(i);
         }
 
-        for (int i = connections.Count - 1; i >= connectionGeneIndex; i--)
+        for (int i = connections.Count - 1; i > connectionGeneIndex - 1; i--)
         {
             connections.RemoveAt(i);
         }
 
         inputs = genome.inputs;
         outputs = genome.outputs;
-        fitness = genome.fitness;
-        adjustedFitness = genome.adjustedFitness;
-        amountToSpawn = genome.amountToSpawn;
-        species = genome.species;
+        fitness = 0;
+        adjustedFitness = 0;
+        amountToSpawn = 0;
+        species = 0;
 
         mutPar = genome.mutPar;
     }
+
+    public void SetGenome(int ID, List<NodeGene> perceptrons, List<ConnectionGene> connections, int inputs, int outputs, MutParameters mutPar)
+    {
+        nodeGeneIndex = 0;
+        connectionGeneIndex = 0;
+        this.ID = ID;
+        for (int i = 0; i < perceptrons.Count; i++)
+        {
+            NodeGene curGene = perceptrons[i];
+            AddNodeGene(curGene);
+        }
+
+        for (int i = 0; i < connections.Count; i++)
+        {
+            ConnectionGene curGene = connections[i];
+            AddConnectionGeneGene(curGene);
+        }
+
+        for (int i = this.perceptrons.Count - 1; i > nodeGeneIndex - 1; i--)
+        {
+            this.perceptrons.RemoveAt(i);
+        }
+
+        for (int i = this.connections.Count - 1; i > connectionGeneIndex - 1; i--)
+        {
+            this.connections.RemoveAt(i);
+        }
+
+        this.inputs = inputs;
+        this.outputs = outputs;
+        fitness = 0;
+        adjustedFitness = 0;
+        amountToSpawn = 0;
+        species = 0;
+
+        this.mutPar = mutPar;
+    }
+
+    public void SetGenome(int ID, int inputs, int outputs, MutParameters mutPar)
+    {
+        network = null;
+        this.ID = ID;
+        fitness = 0;
+        adjustedFitness = 0;
+        this.inputs = inputs;
+        this.outputs = outputs;
+        amountToSpawn = 0;
+        species = 0;
+
+        perceptrons = new List<NodeGene>();
+        connections = new List<ConnectionGene>();
+
+        for (int i = 0; i < inputs; i++)
+        {
+            perceptrons.Add(new NodeGene(NodeType.Sensor, i, new Vector2(0, (float)i / inputs)));
+        }
+        perceptrons.Add(new NodeGene(NodeType.Bias, inputs, new Vector2(0, 1), false));
+        for (int i = 0; i < outputs; i++)
+        {
+            perceptrons.Add(new NodeGene(NodeType.Output, i + inputs + 1, new Vector2(1, (float)i / (outputs - 1))));
+        }
+
+        for (int i = 0; i < inputs + 1; i++)
+        {
+            for (int j = 0; j < outputs; j++)
+            {
+                connections.Add(new ConnectionGene(perceptrons[i].ID, perceptrons[inputs + j + 1].ID, true, inputs + outputs + 1 + NumGenes(), Random.Range(-1f, 1f)));
+            }
+        }
+
+        this.mutPar = mutPar;
+    }
+
 
     public void AddNodeGene(NodeGene gene)
     {
@@ -399,7 +471,7 @@ public class Genome
                     (perceptrons[GetElementPos(percep1)].type == NodeType.Sensor && perceptrons[GetElementPos(percep2)].type == NodeType.Sensor) || 
                     (perceptrons[GetElementPos(percep1)].type == NodeType.Output && perceptrons[GetElementPos(percep2)].type == NodeType.Output) ||
                     (perceptrons[GetElementPos(percep1)].type == NodeType.Output && perceptrons[GetElementPos(percep2)].type == NodeType.Sensor) ||
-                    perceptrons[GetElementPos(percep2)].type == NodeType.Sensor)
+                    perceptrons[GetElementPos(percep2)].type == NodeType.Sensor || perceptrons[GetElementPos(percep2)].type == NodeType.Bias)
                 {
                     percep1 = -1;
                     percep2 = -1;
@@ -436,6 +508,7 @@ public class Genome
             ConnectionGene gene = new ConnectionGene(percep1, percep2, true, innovID, Random.Range(-1f, 1f), recurrent);
             connections.Add(gene);
         }
+
 
     }
 
@@ -495,7 +568,7 @@ public class Genome
                 while (trysFindOldLink > 0)
                 {
                     chosenLink = Random.Range(0, NumGenes() - 1 - (int)Mathf.Sqrt((float)NumGenes()));
-
+                    Debug.Log(chosenLink);
                     from = connections[chosenLink].from;
 
                     if (connections[chosenLink].enabled && !connections[chosenLink].recurrent && perceptrons[GetElementPos(from)].type != NodeType.Bias)
@@ -757,14 +830,14 @@ public class Genome
 
         while (g1 < connections.Count - 1 || g2 < genome.connections.Count - 1)
         {
-            if(g1 == connections.Count  - 1)
+            if(g1 >= connections.Count  - 1)
             {
                 g2++;
                 numExcess++;
                 continue;
             }
 
-            if (g2 == genome.connections.Count - 1)
+            if (g2 >= genome.connections.Count - 1)
             {
                 g1++;
                 numExcess++;
@@ -912,12 +985,12 @@ public class Genome
                 continue;
             }
             if (offspringConnections.Count == 0)
-                offspringConnections.Add(selectedGene);
+                offspringConnections.Add(new ConnectionGene(selectedGene));
             else
             {
                 if(offspringConnections[offspringConnections.Count - 1].innovNum != selectedGene.innovNum)
                 {
-                    offspringConnections.Add(selectedGene);
+                    offspringConnections.Add(new ConnectionGene(selectedGene));
                 }
             }
 
@@ -940,7 +1013,8 @@ public class Genome
 
         MutParameters mutPar = new MutParameters(mum, dad);
 
-        Genome offspring = new Genome(ga.nextGenomeID, offspringPerceptrons, offspringConnections, mum.inputs, mum.outputs, mutPar);
+        Genome offspring = RecycledGenome(ga.nextGenomeID, offspringPerceptrons, offspringConnections, mum.inputs, mum.outputs, mutPar);
+
         ga.nextGenomeID++;
 
         return offspring;
@@ -1009,6 +1083,52 @@ public class Genome
         }
 
         return -1;
+    }
+
+    public static void CreateGenomePool(int generationSize)
+    {
+        genomePool = new List<Genome>();
+        for (int i = 0; i < generationSize*2; i++)
+            genomePool.Add(new Genome());
+    }
+
+    public static Genome RecycledGenome(Genome genome)
+    {
+        Genome recycledGenome = genomePool[0];
+        genomePool.RemoveAt(0);
+
+        recycledGenome.SetGenome(genome);
+        return recycledGenome;
+        //return new Genome(genome);
+    }
+
+    public static Genome RecycledGenome(int ID, int inputs, int outputs, MutParameters mutPar)
+    {
+
+        Genome recycledGenome = genomePool[0];
+        genomePool.RemoveAt(0);
+
+        recycledGenome.SetGenome(ID, inputs, outputs, mutPar);
+        return recycledGenome;
+        //return new Genome(ID, inputs, outputs, mutPar);
+
+    }
+
+
+    public static Genome RecycledGenome(int ID, List<NodeGene> perceptrons, List<ConnectionGene> connections, int inputs, int outputs, MutParameters mutPar)
+    {
+        Genome recycledGenome = genomePool[0];
+        genomePool.RemoveAt(0);
+
+        recycledGenome.SetGenome(ID, perceptrons, connections, inputs, outputs, mutPar);
+        return recycledGenome;
+        //return new Genome(ID, perceptrons, connections, inputs, outputs, mutPar);
+
+    }
+
+    public static void AddToRecycledGenomes(List<Genome> genomes)
+    {
+        genomePool.AddRange(genomes);
     }
 
     public int GetID()

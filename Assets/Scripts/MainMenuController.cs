@@ -240,7 +240,7 @@ public class MainMenuController : MonoBehaviour
 
         trainingCanvas.SetActive(true);
         trainingCanvas.GetComponent<CanvasGroup>().alpha = 0;
-        TrackManager manager = Instantiate(trackPrefab).GetComponent<TrackManager>();
+        //TrackManager manager = Instantiate(trackPrefab).GetComponent<TrackManager>();
         RacingCanvasController.toTrain = false;
 
         StartCoroutine(_StartChallengeNetwork());

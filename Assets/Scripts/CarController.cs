@@ -761,16 +761,32 @@ public class CarController : MonoBehaviour
                 if (rotations.Count > 0 && positions.Count > 0)
                 {
                     transform.position = positions[0];
-                    trailRenPos.Add(transform.position);
-                    if (trailRenPos.Count > 1)
-                        trailRenLen += (trailRenPos[trailRenPos.Count - 2] - trailRenPos[trailRenPos.Count - 1]).magnitude;
 
-                    while (trailRenLen > trailRenMaxLen)
+
+                    if (trailRenLen > trailRenMaxLen)
                     {
+                        Vector3 removeVec = trailRenPos[0];
+                        removeVec.Set(positions[0].x, positions[0].y, positions[0].z);
+                        trailRenPos.Add(removeVec);
+
+
                         trailRenLen -= (trailRenPos[0] - trailRenPos[1]).magnitude;
                         trailRenPos.RemoveAt(0);
 
                     }
+                    else
+                    {
+                        trailRenPos.Add(positions[0]);
+                    }
+
+                    while(trailRenLen > trailRenMaxLen)
+                    {
+                        trailRenLen -= (trailRenPos[0] - trailRenPos[1]).magnitude;
+                        trailRenPos.RemoveAt(0);
+                    }
+
+                    if (trailRenPos.Count > 1)
+                        trailRenLen += (trailRenPos[trailRenPos.Count - 2] - trailRenPos[trailRenPos.Count - 1]).magnitude;
                     trailRenLength = trailRenPos.Count;
 
                     positions.RemoveAt(0);
@@ -783,9 +799,7 @@ public class CarController : MonoBehaviour
                 else
                 {
                     return false;
-                }
-                
-       
+                }       
             }
         }
     }
@@ -793,7 +807,11 @@ public class CarController : MonoBehaviour
     public void SetTrailRenderer()
     {
         trailren.positionCount = trailRenPos.Count;
-        trailren.SetPositions(trailRenPos.ToArray());
+
+        Vector3[] positionsArray = (Vector3[])typeof(List<Vector3>).GetField("_items", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(trailRenPos);
+        trailren.SetPositions(positionsArray);
+
+
     }
 
     public bool IsDone()

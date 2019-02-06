@@ -82,7 +82,6 @@ public class CarTrainer : MonoBehaviour
         raceManager.Reset();
 
         FitnessTracker.totLength = 0;
-
         for(int i = 0; i < LoadTrackManager.instance.selectedTrackNames.Count; i++)
         {
             trackManagers.Add(Instantiate(trackPrefab).GetComponent<TrackManager>());
@@ -165,7 +164,8 @@ public class CarTrainer : MonoBehaviour
                 if (complexify && Random.Range(0f, 1f) < 0.3f)
                     complexify = !complexify;
                 else if (!complexify)
-                    complexify = !complexify;
+                    complexify = true;
+
             }
         }
     }

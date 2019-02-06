@@ -29,6 +29,12 @@ public class Track
         }
     }
 
+    public void Reset()
+    {
+        for (int i = 0; i < trackPoints.Count; i++)
+            trackPoints[i].Reset();
+    }
+
 
 
 }

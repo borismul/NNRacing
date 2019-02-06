@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class CarTrackController : MonoBehaviour {
 
+    public List<Track> tracks = new List<Track>();
     public Track track;
 
     TrackPoint currentPoint;
@@ -47,6 +48,30 @@ public class CarTrackController : MonoBehaviour {
         }
 
         pointNum = 2;
+
+        tracks.Add(track);
+    }
+
+    public bool SetTrack(int i)
+    {
+        if (i > tracks.Count - 1)
+            return false;
+
+        track = tracks[i];
+
+        currentPoint = track.trackPoints[0];
+        nextPoint = track.trackPoints[1];
+
+        GetComponent<FitnessTracker>().TotalLapDistance = track.length;
+
+        foreach (TrackPoint point in track.trackPoints)
+        {
+            point.Reset();
+        }
+
+        pointNum = 2;
+
+        return true;
     }
 
     public float CheckSetDone(Vector3 carPosition)

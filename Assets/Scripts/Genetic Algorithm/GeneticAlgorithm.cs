@@ -40,16 +40,16 @@ public class GeneticAlgorithm
         bestGenomes = new List<Genome>();
         species = new List<Species>();
         oldGenomes = new List<List<Genome>>();
+        Genome.CreateGenomePool(size);
 
         for (int i = 0; i < size; i++)
         {
-            genomes.Add(new Genome(nextGenomeID, inputs, outputs, new Genome.MutParameters()));
+            genomes.Add(Genome.RecycledGenome(nextGenomeID, inputs, outputs, new Genome.MutParameters()));
             nextGenomeID++;
         }
         Genome genome = new Genome(1, inputs, outputs, new Genome.MutParameters());
 
         innovations = new Innovations(genome.GetConnectionGenes(), genome.GetPerceptronGenes());
-
     }
 
     public GeneticAlgorithm(int size, int inputs, int hidden, int[] hiddenNodes, int outputs)
@@ -105,29 +105,12 @@ public class GeneticAlgorithm
         SpeciateAndCaluclateSpawnLevels();
 
         newPopulation.Clear();
-
+        //newPopulation.Add(Genome.RecycledGenome(genomes[0]));
 
         Genome offSpring = null;
 
         float bestFitness = -10000;
         int bestSpeciesIndex = -1;
-        //for (int i = 0; i < species.Count; i++)
-        //{
-        //    if (species[i].leader.GetFitness() > bestFitness)
-        //    {
-        //        bestSpeciesIndex = i;
-        //        bestFitness = species[i].leader.GetFitness();
-        //    }
-        //}
-
-        //offSpring = new Genome(species[bestSpeciesIndex].leader);
-        //newPopulation.Add(offSpring);
-
-        if (complexify)
-            Complexify(bestSpeciesIndex);
-        else
-            Simplify(bestSpeciesIndex);
-
 
         int storeNumber = Mathf.FloorToInt(genomes.Count * GA_Parameters.savePercentage / 100);
         if (storeNumber == 0)
@@ -136,8 +119,15 @@ public class GeneticAlgorithm
         oldGenomes.Add(new List<Genome>());
         for (int i = 0; i < storeNumber; i++)
         {
-            oldGenomes[oldGenomes.Count-1].Add(genomes[i]);
+            oldGenomes[oldGenomes.Count - 1].Add(new Genome(genomes[i]));
         }
+
+        if (complexify)
+            Complexify(bestSpeciesIndex);
+        else
+            Simplify(bestSpeciesIndex);
+
+        Genome.AddToRecycledGenomes(genomes);
         genomes = newPopulation;
         newNetworks.Clear();
 
@@ -167,8 +157,6 @@ public class GeneticAlgorithm
 
         currentGeneration++;
 
-        if(Random.Range(0f,1f) > 0.9f)
-            System.GC.Collect();
         return newNetworks;
     }
 
@@ -188,7 +176,7 @@ public class GeneticAlgorithm
                     offSpring = null;
                     if (!chosenBestYet && i != bestSpeciesIndex)
                     {
-                        offSpring = new Genome(species[i].leader);
+                        offSpring = Genome.RecycledGenome(species[i].leader);
                         chosenBestYet = true;
                     }
                     else
@@ -199,16 +187,16 @@ public class GeneticAlgorithm
                         }
                         else
                         {
-                            Genome g1 = species[i].Spawn();
+                            Genome g1 = species[i].Spawn(false);
                             if (Random.Range(0f, 1f) < GA_Parameters.crossOverRate)
                             {
-                                Genome g2 = species[i].Spawn();
+                                Genome g2 = species[i].Spawn(false);
 
                                 int attempts = 5;
 
                                 while (g1.GetID() == g2.GetID() && attempts > 0)
                                 {
-                                    g2 = species[i].Spawn();
+                                    g2 = species[i].Spawn(false);
 
                                     attempts--;
                                 }
@@ -216,21 +204,24 @@ public class GeneticAlgorithm
                                 if (g1.GetID() != g2.GetID())
                                 {
                                     offSpring = Genome.Crossover(g1, g2, this);
+
                                 }
                                 else
-                                    offSpring = g1;
+                                    offSpring = Genome.RecycledGenome(g1);
                             }
                             else
                             {
-                                offSpring = g1;
+                                offSpring = Genome.RecycledGenome(g1);
                             }
+
+
+                            nextGenomeID++;
+                            offSpring.SetID(nextGenomeID);
                         }
 
-                        nextGenomeID++;
-                        offSpring.SetID(nextGenomeID);
+
+
                     }
-
-
 
                     if (offSpring.NumPerceptrons() < GA_Parameters.maxPermittedPerceptrons)
                         offSpring.AddNeuron(offSpring.mutPar.addPercepProb, ref innovations, GA_Parameters.triesToFindLink);
@@ -239,8 +230,9 @@ public class GeneticAlgorithm
                     offSpring.MutateWeights(offSpring.mutPar.weightMutRate, offSpring.mutPar.weightRepProb, offSpring.mutPar.maxWeightPerturbation);
 
                     offSpring.MutateActivationResponse(offSpring.mutPar.activationMutationChance, offSpring.mutPar.maxActivationPerturbation);
-                    offSpring.SortGenes();
 
+
+                    offSpring.SortGenes();
                     newPopulation.Add(offSpring);
                     spawnedSoFar++;
 
@@ -280,7 +272,7 @@ public class GeneticAlgorithm
                     offSpring = null;
                     if (!chosenBestYet && i != bestSpeciesIndex)
                     {
-                        offSpring = new Genome(species[i].leader);
+                        offSpring = Genome.RecycledGenome(species[i].leader);
                         chosenBestYet = true;
                     }
                     else
@@ -290,8 +282,8 @@ public class GeneticAlgorithm
                         nextGenomeID++;
                         offSpring.SetID(nextGenomeID);
 
-
                     }
+
 
                     offSpring.RemoveNeuron(offSpring.mutPar.addPercepProb, ref innovations);
 
@@ -300,6 +292,7 @@ public class GeneticAlgorithm
                     offSpring.MutateWeights(offSpring.mutPar.weightMutRate, offSpring.mutPar.weightRepProb, offSpring.mutPar.maxWeightPerturbation);
 
                     offSpring.MutateActivationResponse(offSpring.mutPar.activationMutationChance, offSpring.mutPar.maxActivationPerturbation);
+
                     offSpring.SortGenes();
 
                     newPopulation.Add(offSpring);
@@ -342,7 +335,7 @@ public class GeneticAlgorithm
             }
         }
 
-        return genomes[index];
+        return Genome.RecycledGenome(genomes[index]);
     }
 
     void ResetAndKill()

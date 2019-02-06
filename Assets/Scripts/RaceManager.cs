@@ -73,6 +73,8 @@ public class RaceManager : MonoBehaviour
 
     List<GameObject> trackPlanes = new List<GameObject>();
 
+    WaitForSeconds wait = new WaitForSeconds(1);
+
     void Awake()
     {
         raceManager = this;
@@ -209,7 +211,7 @@ public class RaceManager : MonoBehaviour
 
             CreateCars(!threaded);
             AddPlayers();
-            SetCarsReady(threaded, i == 0);
+            SetCarsReady(threaded, i == 0, i);
             AdjustViewSettings();
 
             yield return null;
@@ -265,7 +267,7 @@ public class RaceManager : MonoBehaviour
 
             CreateCars(!threaded);
             AddPlayers();
-            SetCarsReady(threaded, i == 0);
+            SetCarsReady(threaded, i == 0, i);
             AdjustViewSettings();
 
             yield return null;
@@ -307,7 +309,7 @@ public class RaceManager : MonoBehaviour
 
         CreateCars(true);
         AddPlayers();
-        SetCarsReady(true, true);
+        SetCarsReady(true, true, 0);
 
         ResetRaceParameters();
         CreateThreadActions((500));
@@ -348,7 +350,7 @@ public class RaceManager : MonoBehaviour
         }
     }
 
-    void SetCarsReady(bool threaded, bool completeReset)
+    void SetCarsReady(bool threaded, bool completeReset, int trackNum)
     {
         for (int i = 0; i < cars.Count; i++)
         {
@@ -356,7 +358,8 @@ public class RaceManager : MonoBehaviour
             {
                 if (cars[i].GetActive())
                 {
-                    cars[i].trackManager.SetTrack(TrackManager.trackManager.GetTrack());
+                    if (!cars[i].trackManager.SetTrack(trackNum))
+                        cars[i].trackManager.SetTrack(TrackManager.trackManager.GetTrack());
                     cars[i].Reset(!completeReset, false);
                     cars[i].threaded = threaded;
 
@@ -787,8 +790,13 @@ public class RaceManager : MonoBehaviour
 
             if (waitTime > 1)
                 waitTime = 1;
+            float totalWaitTime = 0;
 
-            yield return new WaitForSeconds(waitTime);
+            while (totalWaitTime < waitTime)
+            {
+                yield return null;
+                totalWaitTime += Time.deltaTime;
+            }
 
             // Simulation is going as fast as set so set the curSpeed to the desired speed
             curSpeed = GA_Parameters.updateRate;

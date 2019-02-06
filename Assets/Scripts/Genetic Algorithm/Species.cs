@@ -33,7 +33,7 @@ public class Species
         {
             bestFitness = genome.GetFitness();
             generationsNoImprovement = 0;
-            leader = genome;
+            leader = new Genome(genome);
         }
 
         members.Add(genome);
@@ -75,13 +75,9 @@ public class Species
             spawnsRequired += members[i].GetAmountToSpawn();
     }
 
-    public Genome Spawn()
+    public Genome Spawn(bool returnCopy = true)
     {
-        Genome offSpring;
-
-        if (members.Count == 1)
-            offSpring = members[0];
-        else
+        if (members.Count > 1)
         {
 
             int maxIndex = (int)(GA_Parameters.survivalRate * members.Count);
@@ -97,24 +93,30 @@ public class Species
             //    return genome;
             //}
             //else
-                return new Genome(members[index]);
+            if (returnCopy)
+                return Genome.RecycledGenome(members[index]);
+            else
+                return members[index];
             //int n = (int)(GA_Parameters.survivalRate * members.Count);
 
-            //int index = Mathf.RoundToInt(Random.Range(0f, 1f) * (n * (n + 1) / 2));
-            //int temp = 0;
+                //int index = Mathf.RoundToInt(Random.Range(0f, 1f) * (n * (n + 1) / 2));
+                //int temp = 0;
 
-            //for (int i = n; i > 0; i--)
-            //{
-            //    temp += n - (i - 1);
+                //for (int i = n; i > 0; i--)
+                //{
+                //    temp += n - (i - 1);
 
-            //    if (index < temp)
-            //    {
-            //        return members[i - 1];
-            //    }
-            //}
+                //    if (index < temp)
+                //    {
+                //        return members[i - 1];
+                //    }
+                //}
         }
 
-        return new Genome(members[0]);
+        if (returnCopy)
+            return Genome.RecycledGenome(members[0]);
+        else
+            return members[0];
     }
 
 }
