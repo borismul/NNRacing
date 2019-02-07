@@ -228,15 +228,7 @@ public class Genome
             AddConnectionGeneGene(curGene);
         }
 
-        for (int i = perceptrons.Count - 1; i > nodeGeneIndex - 1; i--)
-        {
-            perceptrons.RemoveAt(i);
-        }
-
-        for (int i = connections.Count - 1; i > connectionGeneIndex - 1; i--)
-        {
-            connections.RemoveAt(i);
-        }
+        FinishGenome();
 
         inputs = genome.inputs;
         outputs = genome.outputs;
@@ -265,15 +257,7 @@ public class Genome
             AddConnectionGeneGene(curGene);
         }
 
-        for (int i = this.perceptrons.Count - 1; i > nodeGeneIndex - 1; i--)
-        {
-            this.perceptrons.RemoveAt(i);
-        }
-
-        for (int i = this.connections.Count - 1; i > connectionGeneIndex - 1; i--)
-        {
-            this.connections.RemoveAt(i);
-        }
+        FinishGenome();
 
         this.inputs = inputs;
         this.outputs = outputs;
@@ -320,6 +304,18 @@ public class Genome
         this.mutPar = mutPar;
     }
 
+    public void FinishGenome()
+    {
+        for (int i = this.perceptrons.Count - 1; i > nodeGeneIndex - 1; i--)
+        {
+            perceptrons.RemoveAt(i);
+        }
+
+        for (int i = this.connections.Count - 1; i > connectionGeneIndex - 1; i--)
+        {
+            connections.RemoveAt(i);
+        }
+    }
 
     public void AddNodeGene(NodeGene gene)
     {
@@ -327,6 +323,17 @@ public class Genome
             perceptrons[nodeGeneIndex].SetGene(gene);
         else
             perceptrons.Add(new NodeGene(gene));
+
+        nodeGeneIndex++;
+
+    }
+
+    public void AddNodeGene(int ID, NodeType type, bool recurrent, Vector2 splitValues, float actResponse)
+    {
+        if (nodeGeneIndex < perceptrons.Count)
+            perceptrons[nodeGeneIndex].SetGene(ID, type, recurrent, splitValues, actResponse);
+        else
+            perceptrons.Add(new NodeGene(type, ID, splitValues, recurrent, actResponse));
 
         nodeGeneIndex++;
 
@@ -398,7 +405,11 @@ public class Genome
         for (int i = 0; i < newPerceptronsObjects.Count; i++)
             newPerceptronsObjects[i].Finish();
 
-        network = new NeuralNetwork(ref newPerceptronsObjects, inputs, bestOfAll, leader);
+        if(network != null)
+            network.SetNeuralNetwork(ref newPerceptronsObjects, inputs, bestOfAll, leader);
+        else
+            network = new NeuralNetwork(ref newPerceptronsObjects, inputs, bestOfAll, leader);
+
         return network;
     }
 
@@ -895,12 +906,9 @@ public class Genome
         ));
     }
 
-    public static Genome Crossover(Genome mum, Genome dad, GeneticAlgorithm ga)
+    public static Genome Crossover(ref Genome mum, ref Genome dad, GeneticAlgorithm ga)
     {
         BestParent bestParent = GetBestParent(ref mum, ref dad);
-
-        List<NodeGene> offspringPerceptrons = new List<NodeGene>();
-        List<ConnectionGene> offspringConnections = new List<ConnectionGene>();
 
         List<int> newPerceptrons = new List<int>();
 
@@ -908,6 +916,8 @@ public class Genome
         int curDad = 0;
 
         ConnectionGene selectedGene = null;
+
+        Genome newGenome = RecycledGenome();
 
         while (!(curMum == mum.connections.Count && curDad == dad.connections.Count))
         {
@@ -984,54 +994,59 @@ public class Genome
                 Debug.Log("Weird");
                 continue;
             }
-            if (offspringConnections.Count == 0)
-                offspringConnections.Add(new ConnectionGene(selectedGene));
+            if (newGenome.connectionGeneIndex == 0)
+                newGenome.AddConnectionGeneGene(new ConnectionGene(selectedGene));
             else
             {
-                if(offspringConnections[offspringConnections.Count - 1].innovNum != selectedGene.innovNum)
+                if(newGenome.connections[newGenome.connectionGeneIndex - 1].innovNum != selectedGene.innovNum)
                 {
-                    offspringConnections.Add(new ConnectionGene(selectedGene));
+                    newGenome.AddConnectionGeneGene(new ConnectionGene(selectedGene));
                 }
             }
 
-            
-            AddPercepID(selectedGene.from, ref newPerceptrons);
-            AddPercepID(selectedGene.to, ref newPerceptrons);
-
-
+            newPerceptrons = AddPercepID(selectedGene.from, newPerceptrons);
+            newPerceptrons = AddPercepID(selectedGene.to, newPerceptrons);
         }
 
         newPerceptrons.Sort();
 
         for (int i = 0; i < GA_Parameters.inputs + 1; i++)
-            offspringPerceptrons.Add(ga.innovations.CreateNeuronFromID(i));
+            newGenome = ga.innovations.CreateNeuronFromID(i, newGenome);
+
         for (int i = 0; i < GA_Parameters.outputs; i++)
-            offspringPerceptrons.Add(ga.innovations.CreateNeuronFromID(GA_Parameters.inputs + 1+ i));
+            newGenome = ga.innovations.CreateNeuronFromID(GA_Parameters.inputs + 1 + i, newGenome);
 
         for (int i = 0; i < newPerceptrons.Count; i++)
-            offspringPerceptrons.Add(ga.innovations.CreateNeuronFromID(newPerceptrons[i]));
+            newGenome = ga.innovations.CreateNeuronFromID(newPerceptrons[i], newGenome);
 
         MutParameters mutPar = new MutParameters(mum, dad);
 
-        Genome offspring = RecycledGenome(ga.nextGenomeID, offspringPerceptrons, offspringConnections, mum.inputs, mum.outputs, mutPar);
+        newGenome.ID = ga.nextGenomeID;
+        newGenome.inputs = mum.inputs;
+        newGenome.outputs = mum.outputs;
+        newGenome.mutPar = mutPar;
 
         ga.nextGenomeID++;
 
-        return offspring;
+        newGenome.FinishGenome();
+
+        return newGenome;
 
     }
 
-    static void AddPercepID(int nodeID, ref List<int> perceptrons)
+    static List<int> AddPercepID(int nodeID, List<int> perceptrons)
     {
         for(int i = 0; i < perceptrons.Count; i++)
         {
             if(perceptrons[i] == nodeID)
             {
-                return;
+                return perceptrons;
             }
         }
 
         perceptrons.Add(nodeID);
+
+        return perceptrons;
     }
 
     static BestParent GetBestParent(ref Genome mum, ref Genome dad)
@@ -1121,6 +1136,19 @@ public class Genome
         genomePool.RemoveAt(0);
 
         recycledGenome.SetGenome(ID, perceptrons, connections, inputs, outputs, mutPar);
+        return recycledGenome;
+        //return new Genome(ID, perceptrons, connections, inputs, outputs, mutPar);
+
+    }
+
+    public static Genome RecycledGenome()
+    {
+        Genome recycledGenome = genomePool[0];
+        genomePool.RemoveAt(0);
+
+        recycledGenome.connectionGeneIndex = 0;
+        recycledGenome.nodeGeneIndex = 0;
+
         return recycledGenome;
         //return new Genome(ID, perceptrons, connections, inputs, outputs, mutPar);
 

@@ -22,6 +22,19 @@ public class NodeGene
         this.actResponse = Random.Range(-1, 1);
     }
 
+    public NodeGene(NodeType type,
+                int ID,
+                Vector2 splitValues,
+                bool recurrent, 
+                float actResponse)
+    {
+        this.ID = ID;
+        this.type = type;
+        this.recurrent = recurrent;
+        this.splitValues = splitValues;
+        this.actResponse = actResponse;
+    }
+
     public NodeGene(NodeGene gene)
     {
         this.ID = gene.ID;
@@ -51,6 +64,15 @@ public class NodeGene
         this.recurrent = gene.recurrent;
         this.splitValues = gene.splitValues;
         this.actResponse = gene.actResponse;
+    }
+
+    public void SetGene(int ID, NodeType type, bool recurrent, Vector2 splitValues, float actResponse)
+    {
+        this.ID = ID;
+        this.type = type;
+        this.recurrent = recurrent;
+        this.splitValues = splitValues;
+        this.actResponse = actResponse;
     }
 }
 

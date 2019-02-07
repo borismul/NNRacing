@@ -34,6 +34,11 @@ public class FitnessTracker : MonoBehaviour
         carController = GetComponent<CarController>();
     }
 
+    private void Update()
+    {
+
+    }
+
     public bool UpdateFitness(float time, bool stopAtCrash, Vector3 position)
     {
         float added = trackManager.CheckSetDone(position);
@@ -104,12 +109,12 @@ public class FitnessTracker : MonoBehaviour
 
         }
         return inputs.ToArray();
-    }
+    } 
 
     public float GetFitness()
     {
         if (time == 0 && distance == 0)
-            time = 1;
+            distance = float.Epsilon;
 
         double[] inputs = CreateInputArray();
         float fitness = (float)fitnessDelegate.Invoke(inputs);

@@ -364,7 +364,7 @@ public class MainMenuController : MonoBehaviour
         // simulation time
         float parFloat = PlayerPrefs.GetFloat("simulationTime", -1f);
         if (parFloat == -1)
-            simulationTimeSimple.text = 30.ToString();
+            simulationTimeSimple.text = 200.ToString();
         else
             simulationTimeSimple.text = parFloat.ToString();
 
@@ -373,7 +373,7 @@ public class MainMenuController : MonoBehaviour
         // number of laps
         parInt = PlayerPrefs.GetInt("numberOfLaps", -1);
         if (parInt == -1)
-            numberOfLapsSimple.text = 1.ToString();
+            numberOfLapsSimple.text = 2.ToString();
         else
             numberOfLapsSimple.text = parInt.ToString();
 
@@ -446,7 +446,7 @@ public class MainMenuController : MonoBehaviour
         // simulation time
         float parFloat = PlayerPrefs.GetFloat("simulationTime", -1f);
         if (parFloat == -1)
-            simulationTimeAdvanced.text = 100.ToString();
+            simulationTimeAdvanced.text = 200.ToString();
         else
             simulationTimeAdvanced.text = parFloat.ToString();
 
@@ -455,7 +455,7 @@ public class MainMenuController : MonoBehaviour
         // number of laps
         parInt = PlayerPrefs.GetInt("numberOfLaps", -1);
         if (parInt == -1)
-            numberOfLapsAdvanced.text = 3.ToString();
+            numberOfLapsAdvanced.text = 2.ToString();
         else
             numberOfLapsAdvanced.text = parInt.ToString();
 
@@ -473,7 +473,7 @@ public class MainMenuController : MonoBehaviour
         // save percentage
         parFloat = PlayerPrefs.GetFloat("savePercentage", -1);
         if (parFloat == -1)
-            savePercentage.text = 100f.ToString();
+            savePercentage.text = 1f.ToString();
         else
             savePercentage.text = parFloat.ToString();
         stopAtCrashAdvanced.onValueChanged.AddListener(StopAtCrashAdvanced);
@@ -531,7 +531,7 @@ public class MainMenuController : MonoBehaviour
         // crossover Rate
         parFloat = PlayerPrefs.GetFloat("crossoverRate", -1);
         if (parFloat == -1)
-            crossoverRate.text = 0.7f.ToString();
+            crossoverRate.text = 0.5f.ToString();
         else
             crossoverRate.text = parFloat.ToString();
 
@@ -540,7 +540,7 @@ public class MainMenuController : MonoBehaviour
         // network Inputs
         parInt = PlayerPrefs.GetInt("networkInputs", -1);
         if (parInt == -1)
-            networkInputs.text = 30.ToString();
+            networkInputs.text = 20.ToString();
         else
             networkInputs.text = parInt.ToString();
 
@@ -567,7 +567,7 @@ public class MainMenuController : MonoBehaviour
         // age allowed no improvement
         parInt = PlayerPrefs.GetInt("ageAllowedNoImprovements", -1);
         if (parInt == -1)
-            ageAllowedNoImprovement.text = 30.ToString();
+            ageAllowedNoImprovement.text = 50.ToString();
         else
             ageAllowedNoImprovement.text = parInt.ToString();
 
@@ -585,7 +585,7 @@ public class MainMenuController : MonoBehaviour
         // survival rate
         parFloat = PlayerPrefs.GetFloat("survivalRate", -1);
         if (parFloat == -1)
-            survivalRate.text = 0.7f.ToString();
+            survivalRate.text = 0.5f.ToString();
         else
             survivalRate.text = parFloat.ToString();
 
@@ -639,7 +639,7 @@ public class MainMenuController : MonoBehaviour
         // synapse add probability
         parFloat = PlayerPrefs.GetFloat("synapseAddProbability", -1);
         if (parFloat == -1)
-            synapseAddProbability.text = 0.15f.ToString();
+            synapseAddProbability.text = 0.2f.ToString();
         else
             synapseAddProbability.text = parFloat.ToString();
 
@@ -648,7 +648,7 @@ public class MainMenuController : MonoBehaviour
         // recurrent link probability
         parFloat = PlayerPrefs.GetFloat("recurrentLinkProbability", -1);
         if (parFloat == -1)
-            recurrentLinkProbability.text = 0.1f.ToString();
+            recurrentLinkProbability.text = 0.05f.ToString();
         else
             recurrentLinkProbability.text = parFloat.ToString();
 
@@ -657,7 +657,7 @@ public class MainMenuController : MonoBehaviour
         // activation mutation probability
         parFloat = PlayerPrefs.GetFloat("activationMutationProbability", -1);
         if (parFloat == -1)
-            activationMutationProbability.text = 0.1f.ToString();
+            activationMutationProbability.text = 0.2f.ToString();
         else
             activationMutationProbability.text = parFloat.ToString();
 
@@ -666,7 +666,7 @@ public class MainMenuController : MonoBehaviour
         // max activation perturbation
         parFloat = PlayerPrefs.GetFloat("maxActivationPerturbation", -1);
         if (parFloat == -1)
-            maxActivationPerturbation.text = 0.5f.ToString();
+            maxActivationPerturbation.text = 0.25f.ToString();
         else
             maxActivationPerturbation.text = parFloat.ToString();
 
@@ -675,7 +675,7 @@ public class MainMenuController : MonoBehaviour
         // weight mutation probability
         parFloat = PlayerPrefs.GetFloat("weightMutationProbability", -1);
         if (parFloat == -1)
-            weightMutationProbability.text = 0.1f.ToString();
+            weightMutationProbability.text = 0.2f.ToString();
         else
             weightMutationProbability.text = parFloat.ToString();
 
@@ -684,7 +684,7 @@ public class MainMenuController : MonoBehaviour
         // max activation perturbation
         parFloat = PlayerPrefs.GetFloat("maxWeightPerturbation", -1);
         if (parFloat == -1)
-            maxWeightPerturbation.text = 0.5f.ToString();
+            maxWeightPerturbation.text = 0.25f.ToString();
         else
             maxWeightPerturbation.text = parFloat.ToString();
 
@@ -702,7 +702,7 @@ public class MainMenuController : MonoBehaviour
         // max permitted perceptrons
         parInt = PlayerPrefs.GetInt("maxPermittedPerceptrons", -1);
         if (parInt == -1)
-            maxPermittedPerceptrons.text = 400.ToString();
+            maxPermittedPerceptrons.text = 4000.ToString();
         else
             maxPermittedPerceptrons.text = parInt.ToString();
 
@@ -1303,7 +1303,7 @@ public class MainMenuController : MonoBehaviour
         if (PlayerPrefs.GetString("fitnessEQ") != "")
             fitness.text = PlayerPrefs.GetString("fitnessEQ");
         else
-            fitness.text = "x + x/t * l";
+            fitness.text = "x/(L * l) * 50 + x/t/Vmax * 50 * f";
 
         CheckFitnessText();
     }

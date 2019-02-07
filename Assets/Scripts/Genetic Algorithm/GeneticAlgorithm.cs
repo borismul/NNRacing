@@ -203,7 +203,7 @@ public class GeneticAlgorithm
 
                                 if (g1.GetID() != g2.GetID())
                                 {
-                                    offSpring = Genome.Crossover(g1, g2, this);
+                                    offSpring = Genome.Crossover(ref g1, ref g2, this);
 
                                 }
                                 else

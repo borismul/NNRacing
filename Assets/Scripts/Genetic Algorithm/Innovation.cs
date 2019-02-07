@@ -147,23 +147,20 @@ public class Innovations
         return (nextNeuronID - 1);
     }
 
-    public NodeGene CreateNeuronFromID(int ID)
+    public Genome CreateNeuronFromID(int ID, Genome genome)
     {
-        NodeGene gene = new NodeGene(NodeType.Hidden, 0, Vector2.zero);
 
         for(int i = 0; i < innovations.Count; i++)
         {
             if(innovations[i].percepID == ID)
             {
-                gene.type = innovations[i].percepType;
-                gene.ID = innovations[i].percepID;
-                gene.splitValues = innovations[i].splitValues;
-
-                return gene;
+                genome.AddNodeGene(innovations[i].percepID, innovations[i].percepType, false, innovations[i].splitValues, Random.Range(-1, 1));
+                return genome;
             }
         }
 
-        return gene;
+        genome.AddNodeGene(0, NodeType.Hidden, false, Vector2.zero, Random.Range(-1, 1));
+        return genome;
     }
 
     public int GetNeuronID(int inv)

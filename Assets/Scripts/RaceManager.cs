@@ -179,10 +179,21 @@ public class RaceManager : MonoBehaviour
         }
     }
 
-    public void AddAIPlayer(string name, NeuralNetwork network)
+    public void AddAIPlayer(string name, NeuralNetwork network, int i)
     {
-        network.Reset();
-        aiPlayers.Add(new AIPlayer(name, network));
+        if (i < aiPlayers.Count)
+            aiPlayers[i].SetPlayer(name, network);
+        else
+            aiPlayers.Add(new AIPlayer(name, network));
+    }
+
+    public void FinishPlayers(int count)
+    {
+
+        for (int i = aiPlayers.Count - 1; i > count - 1; i--)
+        {
+            this.aiPlayers.RemoveAt(i);
+        }
     }
 
     public void ResetPlayers()
@@ -245,7 +256,7 @@ public class RaceManager : MonoBehaviour
         }
     }
 
-    public IEnumerator StartRace(bool threaded, List<string> tracks, bool fancy)
+    public IEnumerator StartRace(bool threaded, List<string> tracks, bool fancy, bool createMap)
     {
         for (int i = 0; i < tracks.Count; i++)
         {
@@ -255,7 +266,7 @@ public class RaceManager : MonoBehaviour
             //UIController.instance.UpdateUI(i, tracks.Count);
             //CarTrainer.instance.trackManagers[0].gameObject.SetActive(true);
 
-            TrackManager.LoadTrack(fancy, tracks[i]);
+            TrackManager.LoadTrack(fancy, tracks[i], createMap);
 
 
             //carsLocker = new object[GA_Parameters.populationSize];

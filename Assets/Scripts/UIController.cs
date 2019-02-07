@@ -568,7 +568,7 @@ public class UIController : MonoBehaviour
         AddPlayers(false);
         raceManager.SetViewSettings(RaceManager.ViewType.AICarView, false);
         liveViewCamera.gameObject.SetActive(false);
-        activeRoutines.Add(StartCoroutine(raceManager.StartRace(false, trackNames, true)));
+        activeRoutines.Add(StartCoroutine(raceManager.StartRace(false, trackNames, true, false)));
         racingCanvasController.wasChallenging = false;
     }
 
@@ -590,11 +590,13 @@ public class UIController : MonoBehaviour
             keycodes[3] = KeyCode.RightArrow;
             raceManager.AddHumanPlayer("Me", keycodes);
         }
-
+        
         for (int i = 0; i < activeNetworks.Count; i++)
         {
-            raceManager.AddAIPlayer(i.ToString(), activeNetworks[i].CreateNetwork());
+            raceManager.AddAIPlayer(i.ToString(), activeNetworks[i].CreateNetwork(), i);
         }
+
+        raceManager.FinishPlayers(activeNetworks.Count);
     }
 
     public void Challenge(List<string> trackNames)
@@ -604,7 +606,7 @@ public class UIController : MonoBehaviour
         AddPlayers(true);
         raceManager.SetViewSettings(RaceManager.ViewType.HumanCarView, false);
         liveViewCamera.gameObject.SetActive(false);
-        activeRoutines.Add(StartCoroutine(raceManager.StartRace(false, trackNames, true)));
+        activeRoutines.Add(StartCoroutine(raceManager.StartRace(false, trackNames, true, false)));
         racingCanvasController.wasChallenging = true;
     }
 

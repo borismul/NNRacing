@@ -29,6 +29,14 @@ public class NeuralNetwork
         this.inputs = inputs;
     }
 
+    public void SetNeuralNetwork(ref List<Perceptron> perceptrons, int inputs, bool bestOfAll = false, bool leader = false)
+    {
+        this.bestOfAll = bestOfAll;
+        this.leader = leader;
+        this.perceptrons = perceptrons;
+        this.inputs = inputs;
+    }
+
     public List<float> Update(List<float> inputs)
     {
         output.Clear();

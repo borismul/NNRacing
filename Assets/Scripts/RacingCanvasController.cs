@@ -51,8 +51,6 @@ public class RacingCanvasController : MonoBehaviour {
     public UIController uiController;
     public LoadTrackManagerDuringTraining loadTrackManager;
 
-    public GameObject FinalPositionObj;
-
     public Text splitText;
 
     public bool wasChallenging;

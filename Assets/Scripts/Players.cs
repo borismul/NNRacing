@@ -27,4 +27,10 @@ public class AIPlayer
         this.name = name;
         this.network = network;
     }
+
+    public void SetPlayer(string name, NeuralNetwork network)
+    {
+        this.name = name;
+        this.network = network;
+    }
 }

@@ -104,8 +104,9 @@ public class CarTrainer : MonoBehaviour
             raceManager.ResetPlayers();
             for (int individual = 0; individual < generationNetworks.Count; individual++)
             {
-                raceManager.AddAIPlayer(individual.ToString(), generationNetworks[individual]);
+                raceManager.AddAIPlayer(individual.ToString(), generationNetworks[individual], individual);
             }
+            raceManager.FinishPlayers(generationNetworks.Count);
             yield return StartCoroutine(raceManager.StartRace(true, trackManagers, false));
 
             // Get the fitnesses of the networks and calculate the sum of all fitnesses

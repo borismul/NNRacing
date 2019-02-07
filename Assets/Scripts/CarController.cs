@@ -119,7 +119,6 @@ public class CarController : MonoBehaviour
 
     static Thread mainThread;
 
-
     void Awake()
     {
         mainThread = Thread.CurrentThread;
@@ -202,7 +201,7 @@ public class CarController : MonoBehaviour
         Move(deltaTime);
 
         // If the car has a collision
-        if (OnGrass() > 0 || ((velocity.x == 0 && velocity.z == 0) && aIPlayer != null))
+        if (OnGrass() > 3 || ((velocity.x == 0 && velocity.z == 0) && aIPlayer != null))
         {
 
             // If the car has to stop at a crash stop the simulation
@@ -407,10 +406,7 @@ public class CarController : MonoBehaviour
             else
                 angle = -Mathf.PI / 1.5f / (i + 1 - (float)visionPoints / 2) + Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
 
-            curdist = TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg);
-            for (int j = 0; j < curdist.Count; j++)
-                // Add as input
-                input.Add(((curdist[j]) / 75) /*+ (float)SampleGaussian(0, 1.0 / 9)*/);
+            input.Add(TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg) / 75);
 
         }
 
@@ -566,10 +562,8 @@ public class CarController : MonoBehaviour
             else
                 angle = -Mathf.PI / 1.5f / (i + 1 - (float)visionPoints / 2) + Mathf.PI / 1.5f / ((float)visionPoints / 2 + 1);
 
-            curdist = TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg);
-            for (int j = 0; j < curdist.Count; j++)
-                // Add as input
-                input.Add(((curdist[j]) / 75) /*+ (float)SampleGaussian(0, 1.0 / 9)*/);
+            input.Add(TrackManager.trackManager.GetWallDistance(position, rotation, angle * Mathf.Rad2Deg) / 75);
+
 
         }
 
